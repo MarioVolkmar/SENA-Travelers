@@ -39,29 +39,6 @@ SessionLocal = sessionmaker(
     bind=engine
 )
 
-
-class DatabaseConnection:
-    def __init__(self):
-        self.engine = engine
-
-    def get_session(self):
-        return SessionLocal()
-
-    def test_connection(self):
-        session = self.get_session()
-
-        try:
-            session.execute(text("SELECT 1"))
-            return True
-
-        except Exception as error:
-            print(f"Error connecting to database: {error}")
-            return False
-
-        finally:
-            session.close()
-
-
 def get_db():
     db = SessionLocal()
 

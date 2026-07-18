@@ -31,16 +31,59 @@ class UserRepository:
             .filter(UserModel.id_usuario == id_usuario)
             .first()
         )
-
-    def deactivate_user(self, id_usuario: int):
+    
+    def update_email(self, user: UserModel, email: str):
         try:
-            user = self.find_by_id(id_usuario)
+            user.email = email
 
-            if user is None:
-                return None
+            self.db.commit()
+            self.db.refresh(user)
 
+            return user
+
+        except Exception as error:
+            self.db.rollback()
+            raise error
+        
+    def update_password(self, user: UserModel, contrasena_hash: str):
+        try:
+            user.contrasena_hash = contrasena_hash
+            self.db.commit()
+            self.db.refresh(user)
+
+            return user
+
+        except Exception as error:
+            self.db.rollback()
+            raise error
+    
+    def update_name(self, user: UserModel, name: str):
+        try:
+            user.nombre = name
+            self.db.commit()
+            self.db.refresh(user)
+
+            return user
+
+        except Exception as error:
+            self.db.rollback()
+            raise error
+        
+    def update_verification_email(self, user: UserModel, verification_email: str):
+        try:
+            user.verificacion_email = verification_email
+            self.db.commit()
+            self.db.refresh(user)
+
+            return user
+
+        except Exception as error:
+            self.db.rollback()
+            raise error
+
+    def deactivate_user(self, user: UserModel):
+        try:
             user.estado = "inactivo"
-
             self.db.commit()
             self.db.refresh(user)
 

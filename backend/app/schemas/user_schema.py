@@ -7,7 +7,6 @@ from pydantic import BaseModel, EmailStr, Field, ConfigDict
 class UserBase(BaseModel):
     nombre: str = Field(..., min_length=2, max_length=100)
     email: EmailStr
-    rol_id: int = Field(..., gt=0)
 
 class UserCreate(UserBase):
     password: str = Field(..., min_length=6, max_length=100)
@@ -19,6 +18,7 @@ class UserLogin(BaseModel):
 class UserResponse(UserBase):
     id_usuario: int
     estado: str
+    rol_id: int
     verificacion_email: str
     fecha_creacion: Optional[datetime] = None
 
@@ -35,3 +35,5 @@ class UserEmailUpdate(BaseModel):
 class UserPasswordUpdate(BaseModel):
     actual_password: str = Field(..., min_length=6, max_length=100)
     new_password: str = Field(..., min_length=6, max_length=100)
+class UserRoleUpdate(BaseModel):
+    rol_id: int = Field(..., gt=0)

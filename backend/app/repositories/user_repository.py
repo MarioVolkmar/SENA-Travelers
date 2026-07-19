@@ -92,6 +92,30 @@ class UserRepository:
         except Exception as error:
             self.db.rollback()
             raise error
+        
+    def activate_user(self, user: UserModel):
+        try:
+            user.estado = "activo"
+            self.db.commit()
+            self.db.refresh(user)
+
+            return user
+        
+        except Exception as error:
+            self.db.rollback()
+            raise error
+        
+    def update_user_role(self, user : UserModel, rol_id : int):
+        try:
+            user.rol_id = rol_id
+            self.db.commit()
+            self.db.refresh(user)
+
+            return user
+        
+        except Exception as error:
+            self.db.rollback()
+            raise error
 
     def list_users(self):
         return self.db.query(UserModel).all()

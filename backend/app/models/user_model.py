@@ -15,4 +15,4 @@ class UserModel(Base):
     estado = Column(String(45), nullable=False, default="activo")
     fecha_creacion = Column(DateTime, nullable=False, server_default=func.now())
     verificacion_email = Column(String(45), nullable=False, default="pendiente")
-    rol_id = Column(Integer, ForeignKey("roles.id_rol"), nullable=False)
+    rol_id = Column(Integer, ForeignKey("roles.id_rol"), nullable=False,  default= 2)

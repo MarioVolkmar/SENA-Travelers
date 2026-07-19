@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.database.connection import get_db
-from app.schemas.user_schema import UserCreate, UserResponse, UserLogin, TokenResponse, UserEmailUpdate, UserNameUpdate, UserPasswordUpdate
+from app.schemas.user_schema import UserCreate, UserResponse, UserLogin, TokenResponse, UserEmailUpdate, UserNameUpdate, UserPasswordUpdate, UserRoleUpdate
 from app.services.user_service import UserService
 from app.models.user_model import UserModel
 from app.core.security import get_current_user
@@ -113,6 +113,68 @@ def deactivate_user(
             detail=str(error)
         ) 
     
+@router.patch(
+    "/{id_usuario}/activate",
+    response_model= UserResponse
+)
+def activate_user(
+    id_usuario: int,
+    db: Session = Depends(get_db),
+    current_user : UserModel = Depends(get_current_user)
+):
+    try:
+        user_service = UserService(db)
+        return user_service.activate_user(id_usuario, current_user)
+    except LookupError as error:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(error)
+        )
+    
+    except PermissionError as error:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=str(error)
+        )
+
+    except ValueError as error:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(error)
+        )
+
+@router.patch(
+    "/{id_usuario}/role",
+    response_model=UserResponse
+)
+def update_user_rol(
+    id_usuario: int,
+    user_data : UserRoleUpdate,
+    db: Session = Depends(get_db),
+    current_user : UserModel = Depends(get_current_user)
+):
+    try:
+        user_service = UserService(db)
+        return user_service.update_user_role(id_usuario, user_data.rol_id, current_user)
+    
+    except LookupError as error:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(error)
+        )  
+    
+    except PermissionError as error:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=str(error)
+        ) 
+    
+    except ValueError as error:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(error)
+        )   
+
 @router.patch(
     "/{id_usuario}/name",
     response_model=UserResponse

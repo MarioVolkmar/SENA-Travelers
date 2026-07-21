@@ -24,6 +24,11 @@ class UserResponse(UserBase):
 
     model_config = ConfigDict(from_attributes=True)
 
+class UserCreateResponse(UserResponse):
+    validation_token: str
+
+    model_config = ConfigDict(from_attributes=True)
+
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
@@ -37,3 +42,6 @@ class UserPasswordUpdate(BaseModel):
     new_password: str = Field(..., min_length=6, max_length=100)
 class UserRoleUpdate(BaseModel):
     rol_id: int = Field(..., gt=0)
+
+class UserPasswordReset(BaseModel):
+    new_password: str = Field(..., min_length=6, max_length=100)

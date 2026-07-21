@@ -4,7 +4,7 @@ from app.models.user_model import UserModel
 from app.repositories.user_repository import UserRepository
 from app.schemas.user_schema import UserCreate
 
-from app.core.security import hash_password, verify_password, create_access_token
+from app.core.security import hash_password, verify_password, create_access_token, create_email_verification_token, verify_email_verification_token
 
 from app.repositories.role_repository import RoleRepository
 
@@ -65,7 +65,29 @@ class UserService:
             rol_id=CLIENT_ROLE_ID
         )
 
-        return self.user_repository.create_user(user)
+        created_user = self.user_repository.create_user(user)
+
+        validation_token = create_email_verification_token(data={
+            "sub": str(created_user.id_usuario)
+        })
+
+        print(f"Verification link: http://127.0.0.1:8000/users/verify-email?token={validation_token}")
+        
+        return created_user, validation_token
+    
+    def verify_email(self, token: str):
+        id_usuario = verify_email_verification_token(token)
+
+        user = self._get_user_or_raise(id_usuario)
+
+        if user.verificacion_email == "verificado":
+            raise ValueError("El correo ya está verificado")
+
+        return self.user_repository.update_verification_email(
+            user,
+            "verificado"
+        )
+
 
     def get_user_by_id(self, id_usuario: int, current_user : UserModel):
         self._ensure_admin(current_user)
@@ -127,6 +149,11 @@ class UserService:
         changed_password = hash_password(new_password)
 
         return self.user_repository.update_password(user, changed_password) 
+    
+    def reset_password_by_admin(self, id_usuario ,new_password, current_user: UserModel):
+        self._ensure_admin(current_user)
+        user = self._get_user_or_raise(id_usuario)
+        return self.user_repository.update_password(user, hash_password(new_password))
     
     def login_user(self, email: str, password: str):
         user = self.user_repository.find_by_email(email)

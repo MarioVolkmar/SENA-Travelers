@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.database.connection import get_db
-from app.schemas.user_schema import UserCreate, UserResponse, UserLogin, TokenResponse, UserEmailUpdate, UserNameUpdate, UserPasswordUpdate, UserRoleUpdate
+from app.schemas.user_schema import UserCreate, UserResponse, UserLogin, TokenResponse, UserEmailUpdate, UserNameUpdate, UserPasswordUpdate, UserRoleUpdate, UserPasswordReset, UserCreateResponse
 from app.services.user_service import UserService
 from app.models.user_model import UserModel
 from app.core.security import get_current_user
@@ -18,7 +18,7 @@ router = APIRouter(
 
 @router.post(
     "/",
-    response_model=UserResponse,
+    response_model=UserCreateResponse,
     status_code=status.HTTP_201_CREATED
 )
 def create_user(
@@ -27,7 +27,17 @@ def create_user(
 ):
     try:
         user_service = UserService(db)
-        return user_service.create_user(user_data)
+        created_user, validation_token = user_service.create_user(user_data)
+        return {
+            "id_usuario": created_user.id_usuario,
+            "nombre": created_user.nombre,
+            "email": created_user.email,
+            "estado": created_user.estado,
+            "rol_id": created_user.rol_id,
+            "verificacion_email": created_user.verificacion_email,
+            "fecha_creacion": created_user.fecha_creacion,
+            "validation_token": validation_token
+        }
 
     except ValueError as error:
         raise HTTPException(
@@ -35,6 +45,35 @@ def create_user(
             detail=str(error)
         )
 
+@router.get(
+    "/verify-email",
+    response_model=UserResponse
+)
+def verify_email(
+    token: str,
+    db: Session = Depends(get_db)
+):
+    try:
+        user_service = UserService(db)
+        return user_service.verify_email(token)
+
+    except LookupError as error:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(error)
+        )
+
+    except ValueError as error:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(error)
+        )
+
+    except PermissionError as error:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=str(error)
+        )
 
 @router.get(
     "/",
@@ -258,6 +297,31 @@ def update_password(
             detail=str(error)
         )  
 
+@router.patch(
+    "/{id_usuario}/reset-password",
+    response_model=UserResponse
+)
+def reset_password_by_admin(
+    id_usuario : int,
+    user_data : UserPasswordReset,
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(get_current_user)
+):
+    try:
+        user_service= UserService(db)
+        return user_service.reset_password_by_admin(id_usuario, user_data.new_password, current_user)
+    
+    except LookupError as error:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(error)
+        )  
+    
+    except PermissionError as error:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=str(error)
+        )  
 
 @router.post("/login", response_model= TokenResponse)
 def login(

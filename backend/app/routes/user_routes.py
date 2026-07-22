@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.database.connection import get_db
-from app.schemas.user_schema import UserCreate, UserResponse, UserLogin, TokenResponse, UserEmailUpdate, UserNameUpdate, UserPasswordUpdate, UserRoleUpdate, UserPasswordReset, UserCreateResponse
+from app.schemas.user_schema import UserCreate, UserResponse, UserLogin, TokenResponse, UserEmailUpdate, UserNameUpdate, UserPasswordUpdate, UserRoleUpdate, UserPasswordReset
 from app.services.user_service import UserService
 from app.models.user_model import UserModel
 from app.core.security import get_current_user
@@ -18,7 +18,7 @@ router = APIRouter(
 
 @router.post(
     "/",
-    response_model=UserCreateResponse,
+    response_model=UserResponse,
     status_code=status.HTTP_201_CREATED
 )
 def create_user(
@@ -27,17 +27,7 @@ def create_user(
 ):
     try:
         user_service = UserService(db)
-        created_user, validation_token = user_service.create_user(user_data)
-        return {
-            "id_usuario": created_user.id_usuario,
-            "nombre": created_user.nombre,
-            "email": created_user.email,
-            "estado": created_user.estado,
-            "rol_id": created_user.rol_id,
-            "verificacion_email": created_user.verificacion_email,
-            "fecha_creacion": created_user.fecha_creacion,
-            "validation_token": validation_token
-        }
+        return  user_service.create_user(user_data)
 
     except ValueError as error:
         raise HTTPException(

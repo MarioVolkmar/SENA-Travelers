@@ -207,8 +207,8 @@ CREATE TABLE paquetes_turisticos_has_productos (
 CREATE TABLE reservas (
     id_reserva INT AUTO_INCREMENT PRIMARY KEY,
     fecha_compra DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    fecha_reserva DATETIME NOT NULL,
-    cantidad_personas INT NOT NULL,
+    fecha_reserva DATE NOT NULL,
+    cantidad_personas INT NOT NULL DEFAULT 1,
     cliente_id INT NOT NULL,
     id_paquete_turistico INT NOT NULL,
     total_reserva DECIMAL(10,2) NOT NULL,
@@ -274,7 +274,7 @@ CREATE TABLE notificacion_email (
     mensaje MEDIUMTEXT NOT NULL,
     tipo_notificacion VARCHAR(45) NOT NULL,
     estado_envio VARCHAR(45) NOT NULL DEFAULT 'pendiente',
-    fecha_envio DATETIME NULL,
+    fecha_envio DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     usuarios_id_usuario INT NOT NULL,
     reservas_id_reserva INT NULL,
 

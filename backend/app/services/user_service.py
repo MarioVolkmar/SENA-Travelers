@@ -7,6 +7,7 @@ from app.schemas.user_schema import UserCreate
 from app.core.security import hash_password, verify_password, create_access_token, create_email_verification_token, verify_email_verification_token
 
 from app.repositories.role_repository import RoleRepository
+from app.services.notification_email_service import NotificationEmailService
 
 ADMIN_ROLE_ID = 1
 CLIENT_ROLE_ID = 2
@@ -15,6 +16,7 @@ class UserService:
     def __init__(self, db: Session):
         self.user_repository = UserRepository(db)
         self.role_repository = RoleRepository(db)
+        self.notification_email_service = NotificationEmailService(db)
 
     def _get_user_or_raise(self, id_usuario: int):
         user = self.user_repository.find_by_id(id_usuario)
@@ -71,9 +73,11 @@ class UserService:
             "sub": str(created_user.id_usuario)
         })
 
-        print(f"Verification link: http://127.0.0.1:8000/users/verify-email?token={validation_token}")
+        verification_link = f"http://127.0.0.1:8000/users/verify-email?token={validation_token}"
+
+        self.notification_email_service.create_verification_email(created_user, verification_link)
         
-        return created_user, validation_token
+        return created_user
     
     def verify_email(self, token: str):
         id_usuario = verify_email_verification_token(token)

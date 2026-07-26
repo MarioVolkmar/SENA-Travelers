@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.database.connection import get_db
 from app.routes.user_routes import router as user_router
+from app.routes.client_routes import router as client_router
 
 
 app = FastAPI(
@@ -14,6 +15,7 @@ app = FastAPI(
 
 
 app.include_router(user_router)
+app.include_router(client_router)
 
 
 @app.get("/")

@@ -25,5 +25,34 @@ class ClientRepository:
             .first()
         )
 
+    def find_by_identification(self, identificacion: str):
+        return(
+            self.db.query(ClientModel)
+            .filter(ClientModel.identificacion == identificacion)
+            .first()
+        )
+
+    def find_by_user_id(self, usuario_id: int):
+        return (
+            self.db.query(ClientModel)
+            .filter(ClientModel.usuario_id == usuario_id)
+            .first()
+        )
+
+    def update_city_client(self, client: ClientModel, ciudad_id: int):
+        try:
+            client.ciudad_id = ciudad_id
+
+            self.db.commit()
+            self.db.refresh(client)
+
+            return client
+        
+        except Exception as error:
+            self.db.rollback()
+            raise error
+        
+        
+
     def list_clients(self):
         return self.db.query(ClientModel).all()

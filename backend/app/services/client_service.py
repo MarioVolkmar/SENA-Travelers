@@ -6,8 +6,11 @@ from app.repositories.client_repository import ClientRepository
 from app.repositories.city_repository import CityRepository
 from app.schemas.client_schema import ClientCreate
 
-ADMIN_ROLE_ID = 1
-CLIENT_ROLE_ID = 2
+from app.core.constants import( 
+    ADMIN_ROLE_ID, 
+    CLIENT_ROLE_ID,
+    EMAIL_VERIFICATION_VERIFIED
+)
 
 class ClientService:
     def __init__(self, db: Session):
@@ -47,7 +50,7 @@ class ClientService:
             raise PermissionError("Solo los usuarios cliente pueden crear perfil de cliente")
 
     def _ensure_user_email_verified(self, user: UserModel):
-        if user.verificacion_email != "verificado":
+        if user.verificacion_email != EMAIL_VERIFICATION_VERIFIED:
             raise PermissionError("Debes verificar tu correo antes de crear un perfil de cliente")
 
     def _ensure_user_has_no_client_profile(self, usuario_id: int):

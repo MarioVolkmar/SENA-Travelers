@@ -9,8 +9,14 @@ from app.core.security import hash_password, verify_password, create_access_toke
 from app.repositories.role_repository import RoleRepository
 from app.services.notification_email_service import NotificationEmailService
 
-ADMIN_ROLE_ID = 1
-CLIENT_ROLE_ID = 2
+from app.core.constants import (
+    ADMIN_ROLE_ID,
+    CLIENT_ROLE_ID,
+    USER_STATUS_ACTIVE,
+    USER_STATUS_INACTIVE,
+    EMAIL_VERIFICATION_VERIFIED
+)
+
 
 class UserService:
     def __init__(self, db: Session):
@@ -48,11 +54,11 @@ class UserService:
             raise ValueError("Email en uso")
 
     def _ensure_email_validation(self, user: UserModel):
-        if user.verificacion_email != "verificado":
+        if user.verificacion_email != EMAIL_VERIFICATION_VERIFIED:
             raise PermissionError("La cuenta aun no ha sido verificada")
 
     def _ensure_user_active(self, user: UserModel):
-        if user.estado != "activo":
+        if user.estado != USER_STATUS_ACTIVE:
             raise PermissionError("El usuario no esta activo")
 
     def create_user(self, user_data: UserCreate):
@@ -84,12 +90,12 @@ class UserService:
 
         user = self._get_user_or_raise(id_usuario)
 
-        if user.verificacion_email == "verificado":
+        if user.verificacion_email == EMAIL_VERIFICATION_VERIFIED:
             raise ValueError("El correo ya está verificado")
 
         return self.user_repository.update_verification_email(
             user,
-            "verificado"
+            EMAIL_VERIFICATION_VERIFIED
         )
 
 
@@ -111,7 +117,7 @@ class UserService:
     def activate_user(self, id_usuario: int, current_user : UserModel):
         self._ensure_admin(current_user)
         user = self._get_user_or_raise(id_usuario)
-        if user.estado == "activo":
+        if user.estado == USER_STATUS_ACTIVE:
             raise ValueError("El usuario ya está activo")
 
         return self.user_repository.activate_user(user)
@@ -168,10 +174,10 @@ class UserService:
         if not verify_password(password, user.contrasena_hash):
             raise PermissionError("Correo o contraseña incorrectos")
 
-        if user.estado != "activo":
+        if user.estado != USER_STATUS_ACTIVE:
             raise PermissionError("El usuario está inactivo")
 
-        if user.verificacion_email != "verificado":
+        if user.verificacion_email != EMAIL_VERIFICATION_VERIFIED:
             raise PermissionError("Debe verificar su correo electrónico")
 
         token = create_access_token(

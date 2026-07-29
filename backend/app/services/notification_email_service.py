@@ -4,6 +4,11 @@ from app.models.notification_email_model import NotificationEmailModel
 from app.repositories.notification_email_repository import NotificationEmailRepository
 from app.models.user_model import UserModel
 
+from app.core.constants import(
+    NOTIFICATION_TYPE_EMAIL_VERIFICATION,
+    EMAIL_STATUS_SENT_SIMULATED
+)
+
 class NotificationEmailService:
     def __init__(self, db: Session):
         self.notification_email_repository = NotificationEmailRepository(db)
@@ -22,8 +27,8 @@ class NotificationEmailService:
             destinatario = user.email,
             asunto = "Verifica tu cuenta Travelers",
             mensaje = f"Hola {user.nombre}, verifica tu cuenta en Travelers usando este enlace: {verification_link}",
-            tipo_notificacion = "verificacion_email",
-            estado_envio="enviado_simulado",
+            tipo_notificacion = NOTIFICATION_TYPE_EMAIL_VERIFICATION,
+            estado_envio=EMAIL_STATUS_SENT_SIMULATED,
             usuarios_id_usuario = user.id_usuario
         )
 

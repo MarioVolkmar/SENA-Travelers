@@ -162,7 +162,7 @@ CREATE TABLE paquetes_turisticos (
     descripcion MEDIUMTEXT NOT NULL,
     precio DECIMAL(10,2) NOT NULL,
     descuento INT NOT NULL DEFAULT 0,
-    estado TINYINT NOT NULL DEFAULT 1,
+    estado VARCHAR(35) NOT NULL DEFAULT 'activo',
     fecha_inicio DATE NOT NULL,
     fecha_fin DATE NOT NULL,
     cupo_max INT NOT NULL,

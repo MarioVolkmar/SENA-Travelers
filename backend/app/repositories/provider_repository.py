@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Session
 
 from app.models.provider_model import ProviderModel
+from app.core.constants import PROVIDER_STATUS_PENDING
 
 
 class ProviderRepository:
@@ -46,7 +47,7 @@ class ProviderRepository:
     def list_pending_providers(self):
         return (
             self.db.query(ProviderModel)
-            .filter(ProviderModel.estado_verificacion == "pendiente")
+            .filter(ProviderModel.estado_verificacion == PROVIDER_STATUS_PENDING)
             .all()
         )
 
@@ -65,7 +66,11 @@ class ProviderRepository:
             self.db.rollback()
             raise error
 
-    def update_verification_status(self, provider: ProviderModel, estado_verificacion: str):
+    def update_verification_status(
+        self,
+        provider: ProviderModel,
+        estado_verificacion: str
+    ):
         try:
             provider.estado_verificacion = estado_verificacion
 

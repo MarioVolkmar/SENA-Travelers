@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Session
 
 from app.models.product_model import ProductModel
+from app.core.constants import PRODUCT_STATUS_ACTIVE
 
 
 class ProductRepository:
@@ -32,7 +33,7 @@ class ProductRepository:
     def list_active_products(self):
         return (
             self.db.query(ProductModel)
-            .filter(ProductModel.estado == "activo")
+            .filter(ProductModel.estado == PRODUCT_STATUS_ACTIVE)
             .all()
         )
 

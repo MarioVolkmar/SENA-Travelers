@@ -6,6 +6,7 @@ from app.database.connection import get_db
 from app.routes.user_routes import router as user_router
 from app.routes.client_routes import router as client_router
 from app.routes.provider_routes import router as provider_router
+from app.routes.product_routes import router as product_router
 
 
 app = FastAPI(
@@ -18,6 +19,7 @@ app = FastAPI(
 app.include_router(user_router)
 app.include_router(client_router)
 app.include_router(provider_router)
+app.include_router(product_router)
 
 
 @app.get("/")

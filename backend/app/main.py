@@ -7,6 +7,7 @@ from app.routes.user_routes import router as user_router
 from app.routes.client_routes import router as client_router
 from app.routes.provider_routes import router as provider_router
 from app.routes.product_routes import router as product_router
+from app.routes.tourist_package_routes import router as tourist_package_router
 
 
 app = FastAPI(
@@ -20,7 +21,7 @@ app.include_router(user_router)
 app.include_router(client_router)
 app.include_router(provider_router)
 app.include_router(product_router)
-
+app.include_router(tourist_package_router)
 
 @app.get("/")
 def home():

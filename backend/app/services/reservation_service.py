@@ -11,6 +11,7 @@ from app.repositories.client_repository import ClientRepository
 from app.repositories.tourist_package_repository import TouristPackageRepository
 
 from app.services.companion_service import CompanionService
+from app.services.notification_email_service import NotificationEmailService
 
 from app.schemas.reservation_schema import (
     ReservationCreate,
@@ -31,6 +32,7 @@ class ReservationService:
         self.client_repository = ClientRepository(db)
         self.tourist_package_repository = TouristPackageRepository(db)
         self.companion_service = CompanionService(db)
+        self.notification_email_service = NotificationEmailService(db)
 
     def _ensure_admin(self, current_user: UserModel):
         if current_user.rol_id != ADMIN_ROLE_ID:
@@ -153,6 +155,11 @@ class ReservationService:
             companions_data=reservation_data.acompanantes,
             reserva_id=created_reservation.id_reserva,
             cantidad_personas=reservation_data.cantidad_personas
+        )
+
+        self.notification_email_service.create_reservation_confirmation_email(
+            user=current_user,
+            reservation=created_reservation
         )
 
         return created_reservation

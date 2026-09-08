@@ -10,6 +10,7 @@ from app.models.user_model import UserModel
 from app.repositories.payment_repository import PaymentRepository
 from app.repositories.reservation_repository import ReservationRepository
 from app.repositories.client_repository import ClientRepository
+from app.services.notification_email_service import NotificationEmailService
 
 from app.schemas.payment_schema import PaymentCreate
 
@@ -26,6 +27,7 @@ class PaymentService:
         self.payment_repository = PaymentRepository(db)
         self.reservation_repository = ReservationRepository(db)
         self.client_repository = ClientRepository(db)
+        self.notification_email_service = NotificationEmailService(db)
 
     def _ensure_admin(self, current_user: UserModel):
         if current_user.rol_id != ADMIN_ROLE_ID:
@@ -81,10 +83,10 @@ class PaymentService:
         return f"PAY-{uuid4().hex[:10].upper()}"
 
     def create_payment(
-        self,
-        payment_data: PaymentCreate,
-        current_user: UserModel
-    ):
+            self,
+            payment_data: PaymentCreate,
+            current_user: UserModel
+        ):
         client = self._get_client_profile_or_raise(current_user)
 
         reservation = self._get_reservation_or_raise(
@@ -117,9 +119,15 @@ class PaymentService:
 
         created_payment = self.payment_repository.create_payment(payment)
 
-        self.reservation_repository.update_status(
+        updated_reservation = self.reservation_repository.update_status(
             reservation,
             RESERVATION_STATUS_CONFIRMED
+        )
+
+        self.notification_email_service.create_payment_confirmation_email(
+            user=current_user,
+            reservation=updated_reservation,
+            payment=created_payment
         )
 
         return created_payment

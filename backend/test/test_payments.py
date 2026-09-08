@@ -1,11 +1,13 @@
 from app.models.user_model import UserModel
 from app.models.reservation_model import ReservationModel
+from app.models.notification_email_model import NotificationEmailModel
 
 from app.core.constants import (
     ADMIN_ROLE_ID,
     EMAIL_VERIFICATION_VERIFIED,
     PROVIDER_STATUS_APPROVED,
     RESERVATION_STATUS_CONFIRMED,
+    NOTIFICATION_TYPE_PAYMENT_CONFIRMATION,
 )
 
 
@@ -314,6 +316,7 @@ def create_payment(
         }
     )
 
+
 def test_client_can_pay_own_pending_reservation(client, db_session):
     package, admin_token = create_package_ready_for_payment(client, db_session)
 
@@ -332,7 +335,7 @@ def test_client_can_pay_own_pending_reservation(client, db_session):
         valor=reservation["total_reserva"]
     )
 
-    assert response.status_code == 201
+    assert response.status_code == 201, response.json()
 
     data = response.json()
 
@@ -360,7 +363,7 @@ def test_payment_confirms_reservation(client, db_session):
         valor=reservation["total_reserva"]
     )
 
-    assert payment_response.status_code == 201
+    assert payment_response.status_code == 201, payment_response.json()
 
     db_session.rollback()
     db_session.expire_all()
@@ -468,7 +471,7 @@ def test_cannot_pay_same_reservation_twice(client, db_session):
         valor=reservation["total_reserva"]
     )
 
-    assert first_response.status_code == 201
+    assert first_response.status_code == 201, first_response.json()
 
     second_response = create_payment(
         client,
@@ -498,7 +501,7 @@ def test_client_can_list_own_payments(client, db_session):
         valor=reservation["total_reserva"]
     )
 
-    assert payment_response.status_code == 201
+    assert payment_response.status_code == 201, payment_response.json()
 
     response = client.get(
         "/payments/me",
@@ -510,6 +513,7 @@ def test_client_can_list_own_payments(client, db_session):
     assert response.status_code == 200
     assert isinstance(response.json(), list)
     assert len(response.json()) >= 1
+    assert response.json()[0]["reserva_id"] == reservation["id_reserva"]
 
 
 def test_admin_can_list_all_payments(client, db_session):
@@ -530,7 +534,7 @@ def test_admin_can_list_all_payments(client, db_session):
         valor=reservation["total_reserva"]
     )
 
-    assert payment_response.status_code == 201
+    assert payment_response.status_code == 201, payment_response.json()
 
     response = client.get(
         "/payments/",
@@ -569,6 +573,7 @@ def test_normal_client_cannot_list_all_payments(client, db_session):
 
     assert response.status_code == 403
 
+
 def test_admin_can_get_payment_by_id(client, db_session):
     package, admin_token = create_package_ready_for_payment(client, db_session)
 
@@ -587,7 +592,7 @@ def test_admin_can_get_payment_by_id(client, db_session):
         valor=reservation["total_reserva"]
     )
 
-    assert payment_response.status_code == 201
+    assert payment_response.status_code == 201, payment_response.json()
 
     id_pago = payment_response.json()["id_pago"]
 
@@ -620,7 +625,7 @@ def test_normal_client_cannot_get_payment_by_id(client, db_session):
         valor=reservation["total_reserva"]
     )
 
-    assert payment_response.status_code == 201
+    assert payment_response.status_code == 201, payment_response.json()
 
     id_pago = payment_response.json()["id_pago"]
 
@@ -632,3 +637,45 @@ def test_normal_client_cannot_get_payment_by_id(client, db_session):
     )
 
     assert response.status_code == 403
+
+
+def test_payment_creates_email_notification(client, db_session):
+    package, admin_token = create_package_ready_for_payment(client, db_session)
+
+    client_token, reservation = create_client_with_reservation(
+        client,
+        db_session,
+        package_id=package["id_paquete_turistico"],
+        email="cliente_notificacion_pago@example.com",
+        identificacion="940940940"
+    )
+
+    payment_response = create_payment(
+        client,
+        client_token,
+        reserva_id=reservation["id_reserva"],
+        valor=reservation["total_reserva"]
+    )
+
+    assert payment_response.status_code == 201, payment_response.json()
+
+    db_session.rollback()
+    db_session.expire_all()
+
+    notification = (
+        db_session.query(NotificationEmailModel)
+        .filter(
+            NotificationEmailModel.reservas_id_reserva
+            == reservation["id_reserva"]
+        )
+        .filter(
+            NotificationEmailModel.tipo_notificacion
+            == NOTIFICATION_TYPE_PAYMENT_CONFIRMATION
+        )
+        .first()
+    )
+
+    assert notification is not None
+    assert notification.estado_envio == "enviado_simulado"
+    assert notification.reservas_id_reserva == reservation["id_reserva"]
+    assert notification.usuarios_id_usuario is not None

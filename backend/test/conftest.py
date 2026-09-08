@@ -22,6 +22,8 @@ from app.models.notification_email_model import NotificationEmailModel
 from app.models.reservation_model import ReservationModel
 from app.models.tourist_package_model import TouristPackageModel
 from app.models.tourist_package_product_model import TouristPackageProductModel
+from app.models.companion_model import CompanionModel
+from app.models.payment_model import PaymentModel
 
 load_dotenv()
 

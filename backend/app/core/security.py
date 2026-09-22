@@ -22,6 +22,9 @@ ACCESS_TOKEN_EXPIRE_MINUTES = int(
 VALIDATION_TOKEN_EXPIRE_MINUTES = int(
     os.getenv("VALIDATION_TOKEN_EXPIRE_MINUTES", 120)
 )
+PASSWORD_RESET_TOKEN_EXPIRE_MINUTES = int(
+    os.getenv("PASSWORD_RESET_TOKEN_EXPIRE_MINUTES", 30)
+)
 
 password_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -129,3 +132,31 @@ def get_current_user(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token inválido o expirado"
         )
+
+def create_password_reset_token(data: dict):
+    payload = data.copy()
+    payload["exp"] = datetime.utcnow() + timedelta(
+        minutes=PASSWORD_RESET_TOKEN_EXPIRE_MINUTES
+    )
+    payload["purpose"] = "password_reset"
+
+    return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+
+
+def verify_password_reset_token(token: str):
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+
+        user_id = payload.get("sub")
+        purpose = payload.get("purpose")
+
+        if user_id is None:
+            raise PermissionError("Token inválido")
+
+        if purpose != "password_reset":
+            raise PermissionError("Token tipo inválido")
+
+        return int(user_id)
+
+    except JWTError:
+        raise PermissionError("Token inválido o expirado")

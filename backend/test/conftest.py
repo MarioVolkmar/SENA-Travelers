@@ -26,6 +26,7 @@ from app.models.companion_model import CompanionModel
 from app.models.payment_model import PaymentModel
 
 load_dotenv()
+os.environ["EMAILS_ENABLED"] = "false"
 
 TEST_DATABASE_URL = URL.create(
     drivername="mysql+pymysql",

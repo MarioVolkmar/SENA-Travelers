@@ -1,10 +1,19 @@
 from sqlalchemy.orm import Session
+import os
 
 from app.models.user_model import UserModel
 from app.repositories.user_repository import UserRepository
 from app.schemas.user_schema import UserCreate
 
-from app.core.security import hash_password, verify_password, create_access_token, create_email_verification_token, verify_email_verification_token
+from app.core.security import (
+    hash_password,
+    verify_password,
+    create_access_token,
+    create_email_verification_token,
+    verify_email_verification_token,
+    create_password_reset_token,
+    verify_password_reset_token,
+)
 
 from app.repositories.role_repository import RoleRepository
 from app.services.notification_email_service import NotificationEmailService
@@ -79,7 +88,11 @@ class UserService:
             "sub": str(created_user.id_usuario)
         })
 
-        verification_link = f"http://127.0.0.1:8000/users/verify-email?token={validation_token}"
+        frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173")
+
+        verification_link = (
+            f"{frontend_url}/verify-email?token={validation_token}"
+        )
 
         self.notification_email_service.create_verification_email(created_user, verification_link)
         
@@ -192,3 +205,51 @@ class UserService:
             "token_type": "Bearer"
         }
     
+    def request_password_reset(self, email: str):
+        user = self.user_repository.find_by_email(email)
+        
+        if user is None:
+            return {
+                "message": "Si el correo existe, recibirás instrucciones para restablecer tu contraseña"
+            }
+
+        reset_token = create_password_reset_token(
+            data={
+                "sub": str(user.id_usuario)
+            }
+        )
+
+        frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173")
+
+        reset_link = (
+            f"{frontend_url}/reset-password?token={reset_token}"
+        )
+
+        self.notification_email_service.create_password_reset_email(
+            user=user,
+            reset_link=reset_link
+        )
+
+        return {
+            "message": "Si el correo existe, recibirás instrucciones para restablecer tu contraseña"
+        }
+
+
+    def reset_password(self, token: str, new_password: str):
+        user_id = verify_password_reset_token(token)
+
+        user = self.user_repository.find_by_id(user_id)
+
+        if user is None:
+            raise LookupError("El usuario no existe")
+
+        new_password_hash = hash_password(new_password)
+
+        self.user_repository.update_password(
+            user,
+            new_password_hash
+        )
+
+        return {
+            "message": "Contraseña actualizada correctamente"
+        }   

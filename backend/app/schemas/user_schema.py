@@ -38,5 +38,9 @@ class UserPasswordUpdate(BaseModel):
 class UserRoleUpdate(BaseModel):
     rol_id: int = Field(..., gt=0)
 
-class UserPasswordReset(BaseModel):
-    new_password: str = Field(..., min_length=6, max_length=100)
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str = Field(..., min_length=6)

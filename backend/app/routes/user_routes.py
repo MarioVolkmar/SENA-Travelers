@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.database.connection import get_db
-from app.schemas.user_schema import UserCreate, UserResponse, UserLogin, TokenResponse, UserEmailUpdate, UserNameUpdate, UserPasswordUpdate, UserRoleUpdate, UserPasswordReset
+from app.schemas.user_schema import UserCreate, UserResponse, UserLogin, TokenResponse, UserEmailUpdate, UserNameUpdate, UserPasswordUpdate, UserRoleUpdate, ForgotPasswordRequest, ResetPasswordRequest
 from app.services.user_service import UserService
 from app.models.user_model import UserModel
 from app.core.security import get_current_user
@@ -32,6 +32,43 @@ def create_user(
     except ValueError as error:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(error)
+        )
+
+@router.post("/forgot-password")
+def forgot_password(
+    password_data: ForgotPasswordRequest,
+    db: Session = Depends(get_db)
+):
+    user_service = UserService(db)
+
+    return user_service.request_password_reset(
+        password_data.email
+    )
+
+
+@router.post("/reset-password")
+def reset_password(
+    password_data: ResetPasswordRequest,
+    db: Session = Depends(get_db)
+):
+    try:
+        user_service = UserService(db)
+
+        return user_service.reset_password(
+            password_data.token,
+            password_data.new_password
+        )
+
+    except PermissionError as error:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(error)
+        )
+
+    except LookupError as error:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
             detail=str(error)
         )
 

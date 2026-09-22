@@ -1,4 +1,5 @@
 from fastapi import FastAPI, Depends
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
@@ -18,6 +19,19 @@ app = FastAPI(
     version="1.0.0"
 )
 
+origins = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 
 app.include_router(user_router)
 app.include_router(client_router)
@@ -27,23 +41,20 @@ app.include_router(tourist_package_router)
 app.include_router(reservation_router)
 app.include_router(payment_router)
 
+
 @app.get("/")
 def home():
-    return {
-        "message": "Travelers API is running"
-    }
+    return {"message": "Travelers API is running"}
 
 
 @app.get("/db-test")
 def test_database_connection(db: Session = Depends(get_db)):
     try:
         db.execute(text("SELECT 1"))
-
         return {
             "status": "success",
             "message": "Database connection successful with SQLAlchemy ORM"
         }
-
     except Exception as error:
         return {
             "status": "error",

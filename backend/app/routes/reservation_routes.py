@@ -12,6 +12,9 @@ from app.schemas.reservation_schema import (
     ReservationCreate,
     ReservationStatusUpdate,
     ReservationResponse,
+    PackageAvailabilityResponse,
+    CancellationPolicyResponse,
+    CancellationPreviewResponse,
 )
 
 from app.services.reservation_service import ReservationService
@@ -96,6 +99,94 @@ def list_reservations_admin(
     except PermissionError as error:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
+            detail=str(error)
+        )
+
+
+@router.get(
+    "/availability/{id_paquete_turistico}",
+    response_model=PackageAvailabilityResponse
+)
+def get_package_availability(
+    id_paquete_turistico: int,
+    db: Session = Depends(get_db)
+):
+    try:
+        reservation_service = ReservationService(db)
+
+        return reservation_service.get_package_availability(id_paquete_turistico)
+
+    except LookupError as error:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(error)
+        )
+
+
+@router.get(
+    "/cancellation-policy",
+    response_model=CancellationPolicyResponse
+)
+def get_cancellation_policy(db: Session = Depends(get_db)):
+    """Días de cancelación gratuita y porcentaje de penalidad (público)."""
+    return ReservationService(db).get_cancellation_policy()
+
+
+@router.get(
+    "/{id_reserva}/cancellation",
+    response_model=CancellationPreviewResponse
+)
+def preview_cancellation(
+    id_reserva: int,
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(get_current_user)
+):
+    """Muestra al cliente cuánto se le cobraría y reembolsaría si cancela hoy."""
+    try:
+        return ReservationService(db).preview_cancellation(id_reserva, current_user)
+
+    except PermissionError as error:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=str(error)
+        )
+
+    except LookupError as error:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(error)
+        )
+
+
+@router.patch(
+    "/{id_reserva}/cancel",
+    response_model=ReservationResponse
+)
+def cancel_my_reservation(
+    id_reserva: int,
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(get_current_user)
+):
+    try:
+        reservation_service = ReservationService(db)
+
+        return reservation_service.cancel_my_reservation(id_reserva, current_user)
+
+    except PermissionError as error:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=str(error)
+        )
+
+    except LookupError as error:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(error)
+        )
+
+    except ValueError as error:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(error)
         )
 

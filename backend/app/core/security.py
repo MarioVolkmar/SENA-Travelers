@@ -1,6 +1,6 @@
 from passlib.context import CryptContext
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from jose import jwt, JWTError
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
@@ -39,7 +39,7 @@ def verify_password(password : str, hash_password : str):
 def create_access_token(data : dict):
     payload = data.copy()
 
-    payload["exp"] = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    payload["exp"] = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     payload["purpose"] = "access"
 
     return jwt.encode(
@@ -51,7 +51,7 @@ def create_access_token(data : dict):
 def create_email_verification_token(data: dict):
     payload = data.copy()
 
-    payload["exp"] = datetime.utcnow() + timedelta(minutes = VALIDATION_TOKEN_EXPIRE_MINUTES)
+    payload["exp"] = datetime.now(timezone.utc) + timedelta(minutes = VALIDATION_TOKEN_EXPIRE_MINUTES)
     payload["purpose"] = "email_verification"
 
     return jwt.encode(
@@ -135,7 +135,7 @@ def get_current_user(
 
 def create_password_reset_token(data: dict):
     payload = data.copy()
-    payload["exp"] = datetime.utcnow() + timedelta(
+    payload["exp"] = datetime.now(timezone.utc) + timedelta(
         minutes=PASSWORD_RESET_TOKEN_EXPIRE_MINUTES
     )
     payload["purpose"] = "password_reset"

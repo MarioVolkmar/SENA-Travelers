@@ -46,15 +46,29 @@ ALLOWED_PRODUCT_STATUS = [
     PRODUCT_STATUS_INACTIVE
 ]
 
+# Catálogo de tipos de producto: clave → (nombre, ejemplos)
+PRODUCT_TYPES = {
+    "hospedaje": ("Hospedaje", "Hotel, hostal, cabaña, glamping"),
+    "alimentacion": ("Alimentación", "Desayuno, almuerzo, cena, menú típico"),
+    "transporte": ("Transporte", "Bus, van, lancha, traslado al aeropuerto"),
+    "tour": ("Tour guiado", "City tour, recorrido histórico o cultural"),
+    "actividad": ("Actividad", "Rafting, buceo, caminata, parapente"),
+    "entrada": ("Entrada", "Parques, museos, reservas naturales"),
+    "seguro": ("Seguro de viaje", "Asistencia médica durante el viaje"),
+    "otro": ("Otro", "Servicios que no encajan en los anteriores"),
+}
+
 # Notification email status
 EMAIL_STATUS_PENDING = "pendiente"
-EMAIL_STATUS_SENT_SIMULATED = "enviado_simulado"
+EMAIL_STATUS_SENT = "enviado"
 EMAIL_STATUS_FAILED = "fallido"
+EMAIL_STATUS_DISABLED = "desactivado"  # EMAILS_ENABLED=false: se registra pero no se envía
 
 ALLOWED_NOTIFICATION_EMAIL_STATUS = [
     EMAIL_STATUS_PENDING,
-    EMAIL_STATUS_SENT_SIMULATED,
-    EMAIL_STATUS_FAILED
+    EMAIL_STATUS_SENT,
+    EMAIL_STATUS_FAILED,
+    EMAIL_STATUS_DISABLED
 ]
 
 # Notification types
@@ -62,6 +76,8 @@ NOTIFICATION_TYPE_EMAIL_VERIFICATION = "verificacion_email"
 NOTIFICATION_TYPE_RESERVATION_CONFIRMATION = "confirmacion_reserva"
 NOTIFICATION_TYPE_PAYMENT_CONFIRMATION = "confirmacion_pago"
 NOTIFICATION_TYPE_PASSWORD_RESET = "recuperacion_password"
+NOTIFICATION_TYPE_RESERVATION_CANCELLATION = "cancelacion_reserva"
+NOTIFICATION_TYPE_TRIP_REMINDER = "recordatorio_viaje"
 
 # Tourist package status
 TOURIST_PACKAGE_STATUS_ACTIVE = "activo"
@@ -87,10 +103,64 @@ ALLOWED_RESERVATION_STATUS = [
 PAYMENT_STATUS_APPROVED = "aprobado"
 PAYMENT_STATUS_REJECTED = "rechazado"
 PAYMENT_STATUS_CANCELLED = "cancelado"
+PAYMENT_STATUS_REFUNDED = "reembolsado"
+PAYMENT_STATUS_PARTIALLY_REFUNDED = "reembolso_parcial"
 
 ALLOWED_PAYMENT_STATUS = [
     PAYMENT_STATUS_APPROVED,
     PAYMENT_STATUS_REJECTED,
-    PAYMENT_STATUS_CANCELLED
+    PAYMENT_STATUS_CANCELLED,
+    PAYMENT_STATUS_REFUNDED,
+    PAYMENT_STATUS_PARTIALLY_REFUNDED
 ]
 
+# Política de cancelación de reservas
+# - Gratis hasta CANCELLATION_FREE_DAYS días antes de la fecha de viaje.
+# - Después se cobra CANCELLATION_PENALTY_PERCENT % de lo pagado y se reembolsa el resto.
+# - Desde el día del viaje ya no se puede cancelar.
+CANCELLATION_FREE_DAYS = 7
+CANCELLATION_PENALTY_PERCENT = 30
+
+
+# Unidad en que el proveedor cobra cada producto
+PRODUCT_UNIT_PERSON = "persona"
+PRODUCT_UNIT_NIGHT = "noche"
+PRODUCT_UNIT_DAY = "dia"
+PRODUCT_UNIT_SERVICE = "servicio"  # precio fijo por reserva, sin importar cuántos viajeros
+
+PRODUCT_UNITS = {
+    PRODUCT_UNIT_PERSON: "Por persona",
+    PRODUCT_UNIT_NIGHT: "Por persona por noche",
+    PRODUCT_UNIT_DAY: "Por persona por día",
+    PRODUCT_UNIT_SERVICE: "Por servicio (grupo)",
+}
+
+# Órdenes de pago a proveedores
+PROVIDER_ORDER_PENDING = "pendiente"
+PROVIDER_ORDER_APPROVED = "aprobada"
+PROVIDER_ORDER_PAID = "pagada"
+PROVIDER_ORDER_CANCELLED = "anulada"
+
+# Configuración editable por el administrador (tabla configuraciones)
+SETTING_PROVIDER_PAYMENT_DAYS = "dias_pago_proveedores"
+SETTING_CANCELLATION_FREE_DAYS = "dias_cancelacion_gratis"
+SETTING_CANCELLATION_PENALTY_PERCENT = "porcentaje_penalidad_cancelacion"
+SETTING_REMINDER_DAYS = "dias_recordatorio_viaje"
+DEFAULT_SETTINGS = {
+    SETTING_REMINDER_DAYS: "3",
+    SETTING_PROVIDER_PAYMENT_DAYS: "15",
+    SETTING_CANCELLATION_FREE_DAYS: str(CANCELLATION_FREE_DAYS),
+    SETTING_CANCELLATION_PENALTY_PERCENT: str(CANCELLATION_PENALTY_PERCENT),
+}
+
+
+# Cupones de descuento
+COUPON_TYPE_PERCENT = "porcentaje"
+COUPON_TYPE_AMOUNT = "valor"
+COUPON_TYPES = (COUPON_TYPE_PERCENT, COUPON_TYPE_AMOUNT)
+COUPON_STATUS_ACTIVE = "activo"
+COUPON_STATUS_INACTIVE = "inactivo"
+
+# Reseñas
+REVIEW_STATUS_VISIBLE = "visible"
+REVIEW_STATUS_HIDDEN = "oculta"

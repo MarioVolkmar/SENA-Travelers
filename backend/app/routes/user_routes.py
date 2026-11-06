@@ -1,11 +1,15 @@
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.database.connection import get_db
-from app.schemas.user_schema import UserCreate, UserResponse, UserLogin, TokenResponse, UserEmailUpdate, UserNameUpdate, UserPasswordUpdate, UserRoleUpdate, ForgotPasswordRequest, ResetPasswordRequest
+from app.schemas.user_schema import UserCreate, UserResponse, UserLogin, TokenResponse, UserEmailUpdate, UserNameUpdate, UserPasswordUpdate, UserRoleUpdate, ForgotPasswordRequest, ResetPasswordRequest, GoogleLoginRequest, GoogleConfigResponse, UserPasswordReset
 from app.services.user_service import UserService
+from app.services.google_auth_service import get_google_client_id
+from app.services.avatar_service import AvatarService
+from app.core.storage import AVATAR_MAX_BYTES, StorageNotConfigured
+from botocore.exceptions import BotoCoreError, ClientError
 from app.models.user_model import UserModel
 from app.core.security import get_current_user
 
@@ -349,6 +353,78 @@ def reset_password_by_admin(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=str(error)
         )  
+
+@router.post("/me/avatar", response_model=UserResponse)
+async def upload_avatar(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(get_current_user)
+):
+    """Sube o reemplaza la foto de perfil (JPG, PNG o WEBP, máximo 2 MB)."""
+    # Se lee un byte de más para detectar archivos demasiado grandes sin cargarlos completos
+    data = await file.read(AVATAR_MAX_BYTES + 1)
+
+    try:
+        return AvatarService(db).upload_avatar(current_user, data)
+
+    except ValueError as error:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(error)
+        )
+
+    except StorageNotConfigured as error:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(error)
+        )
+
+    except (BotoCoreError, ClientError):
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="No fue posible guardar la imagen en S3. Intenta de nuevo."
+        )
+
+
+@router.delete("/me/avatar", response_model=UserResponse)
+def delete_avatar(
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(get_current_user)
+):
+    """Quita la foto de perfil (y la borra de S3 si era una foto subida)."""
+    return AvatarService(db).delete_avatar(current_user)
+
+
+@router.get("/google/config", response_model=GoogleConfigResponse)
+def google_config():
+    """Le indica al frontend si el inicio con Google está activo y con qué client id."""
+    client_id = get_google_client_id()
+
+    return {"enabled": bool(client_id), "client_id": client_id or None}
+
+
+@router.post("/google", response_model=TokenResponse)
+def login_with_google(
+    google_data: GoogleLoginRequest,
+    db: Session = Depends(get_db)
+):
+    """Inicia sesión o registra al usuario con el ID token del botón de Google."""
+    try:
+        user_service = UserService(db)
+        return user_service.login_with_google(google_data.credential)
+
+    except PermissionError as error:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=str(error)
+        )
+
+    except RuntimeError as error:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(error)
+        )
+
 
 @router.post("/login", response_model= TokenResponse)
 def login(

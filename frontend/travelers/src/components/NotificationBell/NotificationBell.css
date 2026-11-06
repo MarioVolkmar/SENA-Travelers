@@ -1,0 +1,202 @@
+.bell {
+  position: relative;
+}
+
+.bell-button {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.bell-button:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.bell-button.has-unread svg {
+  animation: bell-ring 1.4s ease 0.4s 1;
+  transform-origin: 50% 10%;
+}
+
+.bell-count {
+  position: absolute;
+  top: 4px;
+  right: 2px;
+  min-width: 19px;
+  height: 19px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  font: 800 0.7rem/19px var(--font-body);
+  text-align: center;
+  box-shadow: 0 0 0 2px var(--color-night, #0b1520);
+}
+
+.bell-panel {
+  position: absolute;
+  top: calc(100% + 12px);
+  right: 0;
+  z-index: 1200;
+  width: min(380px, calc(100vw - 24px));
+  max-height: min(520px, 75vh);
+  display: flex;
+  flex-direction: column;
+  border-radius: 18px;
+  background: #1b2b3b;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.5);
+  color: var(--color-ink);
+  overflow: hidden;
+  animation: ui-pop-in 0.16s ease-out;
+}
+
+.bell-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 18px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.bell-header p {
+  margin: 0;
+  font-family: var(--font-condensed);
+  font-size: 1.15rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.bell-mark-all {
+  border: none;
+  background: none;
+  color: var(--color-primary);
+  font: 700 0.8rem var(--font-body);
+  cursor: pointer;
+}
+
+.bell-list {
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  overflow-y: auto;
+}
+
+.bell-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+  padding: 12px;
+  border: none;
+  border-radius: 12px;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+
+.bell-item:hover,
+.bell-item:focus-visible {
+  outline: none;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.bell-item-icon {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  border-radius: 10px;
+  background: rgba(95, 196, 204, 0.14);
+  color: var(--color-accent);
+}
+
+.bell-item.is-unread .bell-item-icon {
+  background: rgba(245, 165, 36, 0.16);
+  color: var(--color-primary);
+}
+
+.bell-item-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.bell-item-text strong {
+  font-size: 0.92rem;
+}
+
+.bell-item-text span {
+  color: var(--color-muted);
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+.bell-item-text small {
+  margin-top: 2px;
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 0.75rem;
+}
+
+.bell-dot {
+  width: 9px;
+  height: 9px;
+  flex: 0 0 9px;
+  margin-top: 6px;
+  border-radius: 50%;
+  background: var(--color-primary);
+}
+
+.bell-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 36px 20px;
+  color: var(--color-muted);
+  text-align: center;
+}
+
+.bell-empty p {
+  margin: 0;
+}
+
+@keyframes bell-ring {
+  0%, 100% { transform: rotate(0); }
+  15% { transform: rotate(14deg); }
+  30% { transform: rotate(-12deg); }
+  45% { transform: rotate(8deg); }
+  60% { transform: rotate(-5deg); }
+  75% { transform: rotate(2deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bell-button.has-unread svg,
+  .bell-panel {
+    animation: none;
+  }
+}
+
+/* En el menú móvil el panel se abre a todo el ancho */
+@media (max-width: 860px) {
+  .bell-panel {
+    position: fixed;
+    top: 76px;
+    right: 12px;
+    left: 12px;
+    width: auto;
+  }
+}

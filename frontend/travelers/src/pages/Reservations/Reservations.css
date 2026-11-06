@@ -1,0 +1,292 @@
+.reservations-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.reservation-card {
+  display: flex;
+  flex-wrap: wrap;
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.reservation-card.is-cancelled {
+  opacity: 0.72;
+}
+
+.reservation-card.is-cancelled .reservation-media img {
+  filter: grayscale(1);
+}
+
+.reservation-media {
+  flex: 1 1 220px;
+  max-width: 260px;
+  min-height: 200px;
+  background: var(--color-placeholder);
+}
+
+.reservation-media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.reservation-body {
+  flex: 999 1 420px;
+  padding: 24px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.reservation-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.reservation-code {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.reservation-header h2 {
+  margin: 4px 0 0;
+  font-family: var(--font-body);
+  letter-spacing: 0;
+  font-size: 1.35rem;
+}
+
+.reservation-header h2 a {
+  color: var(--color-ink);
+  text-decoration: none;
+}
+
+.reservation-header h2 a:hover {
+  color: var(--color-primary);
+}
+
+.reservation-details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 32px;
+  margin: 0;
+}
+
+.reservation-details dt {
+  color: var(--color-muted);
+  font-size: 0.82rem;
+}
+
+.reservation-details dd {
+  margin: 2px 0 0;
+  font-weight: 700;
+}
+
+.reservation-total {
+  font-family: var(--font-display);
+  font-size: 1.12rem;
+}
+
+.reservation-progress {
+  display: flex;
+  gap: 8px;
+}
+
+.reservation-progress span {
+  flex: 1;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--color-placeholder);
+}
+
+.reservation-progress span.done {
+  background: var(--color-primary);
+}
+
+.reservation-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* ---------- Modal de pago ---------- */
+
+.pay-summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  margin: 0 0 20px;
+  padding: 16px 18px;
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+  color: var(--color-muted);
+  font-weight: 600;
+}
+
+.pay-summary strong {
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+  color: var(--color-ink);
+}
+
+.pay-methods {
+  margin: 0 0 12px;
+  padding: 0;
+  border: none;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.pay-methods legend {
+  margin-bottom: 8px;
+}
+
+.pay-method {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+  padding: 0 14px;
+  border: 1.5px solid var(--color-line);
+  border-radius: 14px;
+  font-weight: 600;
+  font-size: 0.92rem;
+  cursor: pointer;
+}
+
+.pay-method input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.pay-method svg {
+  color: var(--color-muted);
+  flex-shrink: 0;
+}
+
+.pay-method.selected {
+  border-color: var(--color-primary);
+  background: var(--color-primary-soft);
+  color: var(--color-primary-dark);
+}
+
+.pay-method.selected svg {
+  color: var(--color-primary);
+}
+
+.pay-method:focus-within {
+  box-shadow: 0 0 0 3px var(--color-accent);
+}
+
+@media (max-width: 640px) {
+  .reservation-media {
+    max-width: none;
+    min-height: 170px;
+  }
+
+  .reservation-body {
+    padding: 20px;
+  }
+
+  .pay-methods {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ---------- Política y modal de cancelación ---------- */
+
+.reservation-policy {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-primary-dark);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.reservation-policy.is-late {
+  color: var(--color-warning);
+}
+
+.reservation-policy svg {
+  flex-shrink: 0;
+}
+
+.cancel-subtitle {
+  margin: 0 0 18px;
+  color: var(--color-muted);
+}
+
+.cancel-notice {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+  border-radius: var(--radius-md);
+  background: var(--color-primary-soft);
+  color: var(--color-primary-dark);
+  line-height: 1.45;
+}
+
+.cancel-notice.is-late {
+  background: var(--color-warning-bg);
+  color: var(--color-warning);
+}
+
+.cancel-summary {
+  margin: 0 0 12px;
+  padding: 16px 18px;
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+}
+
+.cancel-summary div {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 0;
+}
+
+.cancel-summary dt {
+  color: var(--color-muted);
+}
+
+.cancel-summary dd {
+  margin: 0;
+  font-weight: 600;
+}
+
+.cancel-summary .is-penalty {
+  color: var(--color-danger);
+}
+
+.cancel-summary-total {
+  margin-top: 6px;
+  padding-top: 10px !important;
+  border-top: 1.5px dashed var(--color-line);
+}
+
+.cancel-summary-total dt,
+.cancel-summary-total dd {
+  color: var(--color-ink) !important;
+  font-weight: 700;
+  font-size: 1.1rem;
+}
+
+.reservation-actions .btn svg {
+  margin-right: 6px;
+  vertical-align: -3px;
+}

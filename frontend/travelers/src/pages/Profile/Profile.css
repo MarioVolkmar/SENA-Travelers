@@ -1,0 +1,792 @@
+/* =========================
+   Estructura: menú lateral + contenido
+   ========================= */
+
+.account-layout {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 28px;
+  align-items: flex-start;
+}
+
+.account-sidebar {
+  flex: 1 1 260px;
+  max-width: 290px;
+  position: sticky;
+  top: 100px;
+  padding: 20px;
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+}
+
+.account-identity {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 4px 4px 18px;
+  margin-bottom: 10px;
+  border-bottom: 1px solid var(--color-line-soft);
+}
+
+.account-avatar {
+  flex-shrink: 0;
+  width: 54px;
+  height: 54px;
+  border-radius: 999px;
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.account-avatar-wrapper {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.account-avatar-button {
+  position: absolute;
+  right: -4px;
+  bottom: -4px;
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: 999px;
+  background: var(--color-night);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 0 0 3px var(--color-surface);
+}
+
+.account-avatar-button:hover:not(:disabled) {
+  background: var(--color-primary);
+}
+
+.account-avatar-button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.account-identity-name {
+  margin: 0;
+  font-weight: 700;
+  font-size: 1.05rem;
+  word-break: break-word;
+}
+
+.account-identity-role {
+  margin: 2px 0 0;
+  color: var(--color-muted);
+  font-size: 0.85rem;
+}
+
+.account-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.account-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  padding: 0 14px;
+  border: none;
+  border-radius: 14px;
+  background: transparent;
+  color: var(--color-ink);
+  font: 600 0.95rem var(--font-body);
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.account-menu-item span {
+  flex: 1;
+}
+
+.account-menu-item svg {
+  flex-shrink: 0;
+  color: var(--color-muted);
+}
+
+.account-menu-item:hover {
+  background: var(--color-bg);
+  color: var(--color-ink);
+}
+
+.account-menu-item.active {
+  background: var(--color-primary-soft);
+  color: var(--color-primary-dark);
+}
+
+.account-menu-item.active svg {
+  color: var(--color-primary);
+}
+
+.account-pending {
+  flex: 0 0 9px !important;
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: #d97706;
+}
+
+.account-content {
+  flex: 999 1 560px;
+  min-width: 0;
+}
+
+/* =========================
+   Paneles y filas editables
+   ========================= */
+
+.account-panel {
+  padding: 28px;
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+}
+
+.account-panel h2 {
+  margin: 0 0 8px;
+  font-family: var(--font-body);
+  letter-spacing: 0;
+  font-size: 1.35rem;
+}
+
+.account-muted {
+  margin: 0 0 20px;
+  color: var(--color-muted);
+  line-height: 1.5;
+}
+
+.account-note {
+  margin: 16px 0 0;
+  font-size: 0.88rem;
+}
+
+.account-hint {
+  margin: 0;
+  font-size: 0.85rem;
+  text-align: right;
+  max-width: 220px;
+}
+
+.account-rows {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.account-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 18px 0;
+  border-bottom: 1px solid var(--color-line-soft);
+}
+
+.account-row:last-child {
+  border-bottom: none;
+}
+
+.account-row-column {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.account-row-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+
+.account-row-label {
+  display: block;
+  margin: 0;
+  font-weight: 700;
+}
+
+.account-row-value {
+  margin: 4px 0 0;
+  color: var(--color-muted);
+  word-break: break-word;
+}
+
+.account-row-with-icon {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.account-row-icon {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: var(--color-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.account-inline-select {
+  margin-top: 6px;
+  min-height: 42px;
+  padding: 0 12px;
+  border: 1.5px solid var(--color-line);
+  border-radius: 12px;
+  font: 600 0.95rem var(--font-body);
+  color: var(--color-ink);
+  background: var(--color-surface);
+}
+
+.account-inline-form,
+.account-password-form {
+  flex: 1;
+}
+
+.account-password-form {
+  margin-top: 16px;
+  padding: 18px;
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+}
+
+.account-inline-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.account-field-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0 14px;
+}
+
+/* =========================
+   Carnet de viajero
+   ========================= */
+
+.carnet {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+  align-items: flex-start;
+}
+
+.carnet-visual {
+  flex: 1 1 380px;
+  max-width: 520px;
+}
+
+.carnet-panel {
+  flex: 999 1 340px;
+  min-width: 0;
+}
+
+.traveler-card {
+  position: relative;
+  aspect-ratio: 1.586 / 1;
+  border-radius: 26px;
+  overflow: hidden;
+  background: var(--color-teal-deep);
+  color: #ffffff;
+  box-shadow: 0 24px 50px rgba(0, 0, 0, 0.45);
+  transition: box-shadow 0.3s ease;
+}
+
+.traveler-card-photo {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 46%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.3;
+  transition: opacity 0.4s ease;
+}
+
+.traveler-card.is-complete .traveler-card-photo {
+  opacity: 0.45;
+}
+
+.traveler-card-content {
+  position: absolute;
+  inset: 0;
+  padding: 26px 28px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.traveler-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.traveler-card-brand {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  font-weight: 700;
+}
+
+.traveler-card-brand span {
+  color: var(--color-accent);
+}
+
+.traveler-card-kind {
+  margin: 2px 0 0;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  opacity: 0.85;
+}
+
+.traveler-card-avatar {
+  background: #ffffff;
+  color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.85);
+}
+
+.traveler-card-name {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(1.3rem, 2.6vw, 1.8rem);
+  font-weight: 700;
+  line-height: 1.15;
+  word-break: break-word;
+}
+
+.traveler-card-data {
+  margin: 14px 0 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.traveler-card-data dt {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  opacity: 0.78;
+}
+
+.traveler-card-data dd {
+  margin: 4px 0 0;
+  font-weight: 700;
+  font-size: 0.92rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.traveler-card-number {
+  margin: 12px 0 0;
+  font-size: 0.75rem;
+  letter-spacing: 0.18em;
+  opacity: 0.7;
+}
+
+.carnet-progress {
+  margin-top: 18px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.carnet-progress-bar {
+  flex: 1;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--color-placeholder);
+  overflow: hidden;
+}
+
+.carnet-progress-bar span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--color-primary);
+  transition: width 0.3s ease;
+}
+
+.carnet-progress > span {
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: var(--color-primary-dark);
+}
+
+/* =========================
+   Sellos de viaje
+   ========================= */
+
+.stamps {
+  margin-top: 40px;
+}
+
+.stamps-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+
+.stamps-header h2 {
+  margin: 0;
+  font-size: 1.6rem;
+}
+
+.stamps-header p {
+  margin: 6px 0 0;
+  color: var(--color-muted);
+}
+
+.stamps-grid {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 12px;
+}
+
+.stamp {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 18px 10px;
+  border: 2px dashed var(--color-line);
+  border-radius: 20px;
+  text-align: center;
+}
+
+.stamp.is-earned {
+  border-style: solid;
+  border-color: var(--color-primary);
+  background: var(--color-surface);
+}
+
+.stamp-image {
+  position: relative;
+  width: 64px;
+  height: 64px;
+}
+
+.stamp-image img {
+  width: 100%;
+  height: 100%;
+  border-radius: 999px;
+  object-fit: cover;
+  filter: grayscale(1);
+  opacity: 0.45;
+}
+
+.stamp.is-earned .stamp-image img {
+  filter: none;
+  opacity: 1;
+  box-shadow: 0 0 0 3px var(--color-primary-soft);
+}
+
+.stamp-check {
+  position: absolute;
+  right: -4px;
+  bottom: -4px;
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 0 3px var(--color-surface);
+}
+
+.stamp-city {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--color-muted);
+}
+
+.stamp.is-earned .stamp-city {
+  color: var(--color-ink);
+}
+
+@media (max-width: 900px) {
+  .account-sidebar {
+    position: static;
+    max-width: none;
+    flex-basis: 100%;
+    padding: 12px;
+  }
+
+  .account-identity {
+    display: none;
+  }
+
+  .account-menu {
+    flex-direction: row;
+    overflow-x: auto;
+  }
+
+  .account-menu-item {
+    flex-shrink: 0;
+  }
+
+  .account-menu-arrow {
+    display: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .account-panel {
+    padding: 22px 18px;
+  }
+
+  .traveler-card-content {
+    padding: 18px 20px;
+  }
+
+  /* !important: el tamaño normal viene en línea desde el componente Avatar */
+  .traveler-card-avatar {
+    width: 44px !important;
+    height: 44px !important;
+    font-size: 1.2rem !important;
+  }
+
+  .account-row {
+    flex-wrap: wrap;
+  }
+}
+
+/* =========================
+   Sección Administración
+   ========================= */
+
+.admin-card {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+  padding: 26px 28px;
+  margin-bottom: 20px;
+  border-radius: var(--radius-lg);
+  background: var(--color-night);
+  color: #ffffff;
+}
+
+.admin-card .avatar {
+  box-shadow: 0 0 0 3px var(--color-accent);
+}
+
+.admin-card-text {
+  flex: 1;
+  min-width: 200px;
+}
+
+.admin-card-text h2 {
+  margin: 8px 0 4px;
+  color: #ffffff;
+  font-size: 1.6rem;
+}
+
+.admin-card-text p {
+  margin: 0;
+  color: #c9d1db;
+}
+
+.admin-card-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: rgba(95, 196, 204, 0.18);
+  color: var(--color-accent);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.admin-tasks {
+  margin-bottom: 28px;
+}
+
+.admin-task-text {
+  margin: 0;
+  color: var(--color-ink);
+}
+
+.admin-task-text strong {
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  margin-right: 4px;
+}
+
+.admin-shortcuts-title {
+  margin: 0 0 14px;
+  font-size: 1.35rem;
+}
+
+.admin-shortcuts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.admin-shortcut {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 18px;
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-ink);
+  text-decoration: none;
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.admin-shortcut:hover {
+  color: var(--color-ink);
+  transform: translateY(-2px);
+  box-shadow: 0 12px 26px rgba(8, 20, 32, 0.08);
+}
+
+.admin-shortcut-icon {
+  flex-shrink: 0;
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.admin-shortcut strong {
+  display: block;
+}
+
+.admin-shortcut small {
+  display: block;
+  margin-top: 2px;
+  color: var(--color-muted);
+  font-size: 0.85rem;
+}
+
+/* =========================
+   Solicitud de proveedor
+   ========================= */
+
+.provider-request {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 16px 18px;
+  margin-bottom: 18px;
+  border-radius: var(--radius-md);
+  background: var(--color-primary-soft);
+  color: var(--color-primary-dark);
+}
+
+.provider-request svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.provider-request p {
+  margin: 4px 0 0;
+  line-height: 1.5;
+}
+
+.provider-request.is-pending {
+  background: var(--color-warning-bg);
+  color: var(--color-warning);
+}
+
+.provider-request.is-rejected {
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+}
+
+/* ---------- Favoritos y reseñas ---------- */
+.account-favorites {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 18px;
+}
+
+.account-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 28px 12px;
+  text-align: center;
+  color: var(--color-muted);
+}
+
+.account-empty svg {
+  color: #ff5a6e;
+}
+
+.account-empty p {
+  max-width: 420px;
+  margin: 0;
+}
+
+.account-reviews {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.account-reviews li {
+  padding: 16px;
+  border-radius: var(--radius-md);
+  background: var(--color-surface-2);
+}
+
+.account-reviews p {
+  margin: 10px 0 8px;
+  line-height: 1.55;
+}
+
+.account-review-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.account-review-header a {
+  color: var(--color-ink);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.account-review-header a:hover {
+  color: var(--color-primary);
+}

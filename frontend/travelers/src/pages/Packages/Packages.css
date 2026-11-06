@@ -1,0 +1,52 @@
+.packages-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 32px;
+}
+
+.packages-chips {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.packages-selects {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.packages-select {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 6px 6px 18px;
+  background: var(--color-surface);
+  border-radius: 999px;
+}
+
+.packages-select span {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-muted);
+}
+
+.packages-select select {
+  min-height: 40px;
+  padding: 0 14px;
+  border: none;
+  border-radius: 999px;
+  background: var(--color-bg);
+  font: 600 0.9rem var(--font-body);
+  color: var(--color-ink);
+  cursor: pointer;
+}
+
+.packages-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 24px;
+}

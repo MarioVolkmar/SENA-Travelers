@@ -1,0 +1,232 @@
+/* =========================================================
+   Listas desplegables y calendarios con el estilo «Noche»
+   ========================================================= */
+
+.ui-select {
+  position: relative;
+  display: block;
+  width: 100%;
+  min-width: 0;
+}
+
+/* Botón: por defecto se ve como los campos de formulario */
+.ui-select-trigger {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 48px;
+  padding: 0 14px;
+  border: 1.5px solid var(--color-line);
+  border-radius: 14px;
+  background: var(--color-surface-2);
+  color: var(--color-ink);
+  font: 500 1rem var(--font-body);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.ui-select-trigger:hover:not(:disabled) {
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.ui-select-trigger:focus-visible,
+.ui-select.is-open .ui-select-trigger {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 4px rgba(245, 165, 36, 0.16);
+}
+
+.ui-select-trigger:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.ui-select-value {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ui-select-value.is-placeholder {
+  color: var(--color-muted);
+}
+
+.ui-select-chevron {
+  flex: 0 0 auto;
+  color: var(--color-muted);
+  transition: transform 0.2s ease, color 0.2s ease;
+}
+
+.ui-select.is-open .ui-select-chevron {
+  transform: rotate(180deg);
+  color: var(--color-primary);
+}
+
+/* Input oculto: solo para la validación nativa del formulario */
+.ui-select-native {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  border: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* ---------- Variantes según dónde se usa ---------- */
+
+/* Buscador de la portada y tarjeta de reserva: sin marco, dentro de su caja */
+.home-search-field .ui-select-trigger,
+.booking-row-field .ui-select-trigger {
+  min-height: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  font: 600 1rem var(--font-body);
+  box-shadow: none !important;
+}
+
+.home-search-field .ui-select-chevron,
+.booking-row-field .ui-select-chevron {
+  color: var(--color-ink);
+}
+
+/* Filtros del catálogo */
+.packages-select .ui-select {
+  width: auto;
+}
+
+.packages-select .ui-select-trigger {
+  min-height: 40px;
+  padding: 0 14px 0 16px;
+  border: none;
+  border-radius: 999px;
+  background: var(--color-bg);
+  font: 600 0.9rem var(--font-body);
+}
+
+/* Consola */
+.ui-select-trigger.admin-select {
+  min-height: 38px;
+  padding: 0 10px 0 12px;
+  border-radius: 10px;
+  font: 600 0.88rem var(--font-body);
+  background: var(--color-surface);
+}
+
+.admin-search .ui-select-trigger {
+  min-height: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  box-shadow: none !important;
+}
+
+.ui-select-trigger.account-inline-select {
+  min-height: 42px;
+  margin-top: 6px;
+  padding: 0 12px;
+  border-radius: 12px;
+  font: 600 0.95rem var(--font-body);
+  background: var(--color-surface);
+}
+
+/* ---------- Panel flotante ---------- */
+
+.ui-popover {
+  z-index: 1300;
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  border-radius: 16px;
+  background: #1b2b3b;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow:
+    0 24px 48px rgba(0, 0, 0, 0.5),
+    0 2px 6px rgba(0, 0, 0, 0.3);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  animation: ui-pop-in 0.16s ease-out;
+}
+
+.ui-select-list {
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+}
+
+.ui-select-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.ui-select-option.is-active {
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.ui-select-option[aria-selected='true'] {
+  color: var(--color-primary);
+  font-weight: 700;
+}
+
+.ui-select-option[aria-disabled='true'] {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.ui-select-empty {
+  padding: 10px 12px;
+  color: var(--color-muted);
+}
+
+@keyframes ui-pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-popover {
+    animation: none;
+  }
+
+  .ui-select-chevron {
+    transition: none;
+  }
+}
+
+/* Las etiquetas de estas cajas usan <span>: el valor elegido no debe heredarlas */
+.home-search-field .ui-select-value,
+.booking-row-field .ui-select-value,
+.packages-select .ui-select-value {
+  font-size: inherit;
+  font-weight: inherit;
+  letter-spacing: normal;
+  text-transform: none;
+  color: var(--color-ink);
+}
+
+.home-search-field .ui-select-value.is-placeholder,
+.booking-row-field .ui-select-value.is-placeholder {
+  color: var(--color-muted);
+}

@@ -1,0 +1,161 @@
+import { useCallback, useEffect, useState } from 'react';
+
+import api from '../../../api/axiosConfig';
+import IconButton from '../../../components/IconButton/IconButton';
+import Icon from '../../../components/Icon/Icon';
+import Toast from '../../../components/Toast/Toast';
+import { useAdminAction } from '../adminShared';
+
+const EMPTY_FORM = { nombre: '', departamento: '', pais: 'Colombia', latitud: '', longitud: '' };
+
+function toForm(city) {
+  return {
+    nombre: city.nombre,
+    departamento: city.departamento,
+    pais: city.pais,
+    latitud: city.latitud ?? '',
+    longitud: city.longitud ?? '',
+  };
+}
+
+function CitiesSection() {
+  const [cities, setCities] = useState(null);
+  const [packages, setPackages] = useState([]);
+  const [form, setForm] = useState(EMPTY_FORM);
+  const [editing, setEditing] = useState(null);
+  const { busy, message, error, run } = useAdminAction();
+
+  const load = useCallback(async () => {
+    const [citiesResponse, packagesResponse] = await Promise.all([api.get('/cities/'), api.get('/packages/admin')]);
+    setCities(citiesResponse.data);
+    setPackages(packagesResponse.data);
+  }, []);
+
+  useEffect(() => {
+    load().catch(() => setCities([]));
+  }, [load]);
+
+  const update = (key) => (event) => setForm((current) => ({ ...current, [key]: event.target.value }));
+
+  const cancelEdit = () => {
+    setEditing(null);
+    setForm(EMPTY_FORM);
+  };
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    const coords = {
+      latitud: form.latitud === '' ? null : Number(form.latitud),
+      longitud: form.longitud === '' ? null : Number(form.longitud),
+    };
+    const name = form.nombre.trim();
+
+    const { ok } = await run(
+      () => (editing
+        ? api.patch(`/cities/${editing.id_ciudad}`, { nombre: name, departamento: form.departamento.trim(), ...coords })
+        : api.post('/cities/', { nombre: name, departamento: form.departamento.trim(), pais: form.pais.trim(), ...coords })),
+      editing ? `${name} actualizada.` : `${name} agregada. Ya puedes usarla en paquetes y productos.`,
+      'No fue posible guardar la ciudad.'
+    );
+
+    if (ok) {
+      cancelEdit();
+      await load();
+    }
+  };
+
+  if (!cities) return <p className="page-status">Cargando ciudades...</p>;
+
+  const packageCount = (id) => packages.filter((item) => item.ciudad_id === id).length;
+  const withoutCoords = cities.filter((city) => city.latitud === null || city.longitud === null).length;
+
+  return (
+    <>
+      <div className="admin-header">
+        <div>
+          <h1>Ciudades</h1>
+          <p>Destinos para paquetes, productos y clientes. Con su ubicación aparecen en el mapa de la portada.</p>
+        </div>
+      </div>
+
+      <Toast text={message} />
+      <Toast text={error} tone="error" />
+
+      <div className="admin-two-columns">
+        <form className="surface" onSubmit={handleSubmit}>
+          <div className="admin-panel-header">
+            <h2>{editing ? `Editar ${editing.nombre}` : 'Agregar ciudad'}</h2>
+          </div>
+          <div className="field">
+            <label htmlFor="city-name">Nombre</label>
+            <input id="city-name" value={form.nombre} onChange={update('nombre')} minLength={2} maxLength={45} required />
+          </div>
+          <div className="field">
+            <label htmlFor="city-department">Departamento</label>
+            <input id="city-department" value={form.departamento} onChange={update('departamento')} minLength={2} maxLength={45} required />
+          </div>
+          {!editing && (
+            <div className="field">
+              <label htmlFor="city-country">País</label>
+              <input id="city-country" value={form.pais} onChange={update('pais')} minLength={2} maxLength={45} required />
+            </div>
+          )}
+          <div className="admin-coords">
+            <div className="field">
+              <label htmlFor="city-lat">Latitud</label>
+              <input id="city-lat" type="number" step="0.000001" min="-90" max="90" value={form.latitud} onChange={update('latitud')} placeholder="6.244203" />
+            </div>
+            <div className="field">
+              <label htmlFor="city-lng">Longitud</label>
+              <input id="city-lng" type="number" step="0.000001" min="-180" max="180" value={form.longitud} onChange={update('longitud')} placeholder="-75.581212" />
+            </div>
+          </div>
+          <p className="field-hint">
+            En Google Maps: clic derecho sobre la ciudad y copia los dos números (latitud, longitud).
+          </p>
+          <div className="admin-form-actions">
+            {editing && (
+              <button type="button" className="btn btn-secondary" onClick={cancelEdit} disabled={busy}>Cancelar</button>
+            )}
+            <button type="submit" className="btn btn-primary" disabled={busy}>
+              {busy ? 'Guardando...' : editing ? 'Guardar cambios' : 'Agregar ciudad'}
+            </button>
+          </div>
+        </form>
+
+        <div className="surface">
+          <div className="admin-panel-header">
+            <h2>{cities.length} ciudades</h2>
+            {withoutCoords > 0 && <span className="badge badge-pendiente">{withoutCoords} sin ubicación</span>}
+          </div>
+          <ul className="admin-list">
+            {cities.map((city) => {
+              const hasCoords = city.latitud !== null && city.longitud !== null;
+              return (
+                <li key={city.id_ciudad}>
+                  <span>
+                    <span className="admin-strong">{city.nombre}</span>
+                    <span className="admin-muted"> · {city.departamento}, {city.pais}</span>
+                    <br />
+                    <span className={`admin-city-coords ${hasCoords ? '' : 'is-missing'}`}>
+                      <Icon name="pin" size={13} />
+                      {hasCoords ? `${Number(city.latitud).toFixed(3)}, ${Number(city.longitud).toFixed(3)}` : 'Sin ubicación en el mapa'}
+                    </span>
+                  </span>
+                  <span className="admin-city-side">
+                    <span className="admin-muted">
+                      {packageCount(city.id_ciudad)} {packageCount(city.id_ciudad) === 1 ? 'paquete' : 'paquetes'}
+                    </span>
+                    <IconButton icon="edit" label="Editar" onClick={() => { setEditing(city); setForm(toForm(city)); }} />
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      </div>
+    </>
+  );
+}
+
+export default CitiesSection;

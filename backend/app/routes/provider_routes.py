@@ -12,9 +12,11 @@ from app.schemas.provider_schema import (
     ProviderCreate,
     ProviderUpdate,
     ProviderVerificationUpdate,
-    ProviderResponse
+    ProviderResponse,
+    ProviderDashboardResponse,
 )
 
+from app.services.provider_dashboard_service import ProviderDashboardService
 from app.services.provider_service import ProviderService
 
 
@@ -47,6 +49,25 @@ def create_provider(
     except PermissionError as error:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
+            detail=str(error)
+        )
+
+
+@router.get(
+    "/me/dashboard",
+    response_model=ProviderDashboardResponse
+)
+def get_provider_dashboard(
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(get_current_user)
+):
+    """Panel del proveedor: estado de la solicitud, productos y paquetes que los incluyen."""
+    try:
+        return ProviderDashboardService(db).get_dashboard(current_user)
+
+    except LookupError as error:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
             detail=str(error)
         )
 

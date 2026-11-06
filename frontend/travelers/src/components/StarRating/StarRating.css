@@ -1,0 +1,72 @@
+.stars {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  vertical-align: middle;
+}
+
+.star {
+  position: relative;
+  display: inline-block;
+  flex: 0 0 auto;
+}
+
+.star svg {
+  display: block;
+}
+
+.star-base {
+  color: rgba(255, 255, 255, 0.28);
+}
+
+.star-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  overflow: hidden;
+  color: var(--color-primary);
+}
+
+.star-fill svg {
+  fill: var(--color-primary);
+}
+
+.star-input {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.star-input-stars {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.star-input-option {
+  color: rgba(255, 255, 255, 0.3);
+  cursor: pointer;
+  transition: color 0.12s ease, transform 0.12s ease;
+}
+
+.star-input-option:hover {
+  transform: scale(1.1);
+}
+
+.star-input-option.is-on {
+  color: var(--color-primary);
+}
+
+.star-input-option.is-on svg {
+  fill: var(--color-primary);
+}
+
+.star-input-option:focus-within {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+.star-input-label {
+  font-weight: 700;
+  color: var(--color-primary);
+}

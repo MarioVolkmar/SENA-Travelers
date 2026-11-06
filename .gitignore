@@ -1,3 +1,7 @@
+# =========================
+# Python / Backend
+# =========================
+
 # Entorno virtual
 venv/
 backend/venv/
@@ -9,6 +13,45 @@ backend/.env
 # Archivos temporales de Python
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+
+# Pytest / caché
+.pytest_cache/
+.coverage
+htmlcov/
+
+# =========================
+# Node / Frontend
+# =========================
+
+# Dependencias
+node_modules/
+frontend/node_modules/
+frontend/travelers/node_modules/
+
+# Build de producción
+dist/
+frontend/dist/
+frontend/travelers/dist/
+
+# Variables privadas frontend
+frontend/.env
+frontend/travelers/.env
+
+# Logs de npm
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# =========================
+# Editores / Sistema
+# =========================
 
 # Configuración de editores
 .vscode/
+
+# Archivos de sistema
+.DS_Store
+Thumbs.db

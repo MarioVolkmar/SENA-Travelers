@@ -1,3 +1,4 @@
+from app.core import clock
 from sqlalchemy.orm import Session
 
 from app.models.tourist_package_model import TouristPackageModel
@@ -126,8 +127,10 @@ class TouristPackageService:
         self._ensure_admin(current_user)
         return self._get_package_or_raise(id_paquete_turistico)
 
+    # El catálogo público solo muestra paquetes que todavía se pueden reservar:
+    # su último día debe ser posterior a hoy (se reserva desde mañana).
     def list_active_packages(self):
-        return self.tourist_package_repository.list_active_packages()
+        return self.tourist_package_repository.list_active_packages(ends_after=clock.today())
 
     def list_packages(self, current_user: UserModel):
         self._ensure_admin(current_user)
@@ -135,7 +138,7 @@ class TouristPackageService:
 
     def list_active_packages_by_city(self, ciudad_id: int):
         self._ensure_city_exists(ciudad_id)
-        return self.tourist_package_repository.list_active_by_city_id(ciudad_id)
+        return self.tourist_package_repository.list_active_by_city_id(ciudad_id, ends_after=clock.today())
 
     def update_package(
         self,
@@ -148,9 +151,13 @@ class TouristPackageService:
         tourist_package = self._get_package_or_raise(id_paquete_turistico)
 
         package_data_dict = package_data.model_dump(exclude_unset=True)
+        productos = package_data_dict.pop("productos", None)
 
-        if not package_data_dict:
+        if not package_data_dict and productos is None:
             raise ValueError("No se enviaron datos para actualizar")
+
+        if productos is not None:
+            self._ensure_products_are_valid(package_data.productos)
 
         if "ciudad_id" in package_data_dict:
             self._ensure_city_exists(package_data_dict["ciudad_id"])
@@ -167,10 +174,35 @@ class TouristPackageService:
 
         self._ensure_valid_dates(fecha_inicio, fecha_fin)
 
-        return self.tourist_package_repository.update_package(
-            tourist_package,
-            package_data_dict
-        )
+        if package_data_dict:
+            tourist_package = self.tourist_package_repository.update_package(
+                tourist_package,
+                package_data_dict
+            )
+
+        if productos is not None:
+            self.tourist_package_repository.delete_package_products(id_paquete_turistico)
+
+            for product_data in package_data.productos:
+                self.tourist_package_repository.add_product_to_package(
+                    package_id=id_paquete_turistico,
+                    product_id=product_data.producto_id,
+                    cantidad=product_data.cantidad
+                )
+
+        return tourist_package
+
+    def get_package_detail_admin(self, id_paquete_turistico: int, current_user: UserModel):
+        """Paquete con sus productos, para el formulario de edición de la consola."""
+        self._ensure_admin(current_user)
+        tourist_package = self._get_package_or_raise(id_paquete_turistico)
+
+        productos = [
+            {"producto_id": item.productos_id_producto, "cantidad": item.cantidad}
+            for item in self.tourist_package_repository.list_package_products(id_paquete_turistico)
+        ]
+
+        return tourist_package, productos
 
     def update_package_status(
         self,

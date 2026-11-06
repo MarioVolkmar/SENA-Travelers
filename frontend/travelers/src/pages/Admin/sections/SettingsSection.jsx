@@ -1,0 +1,266 @@
+import { useEffect, useState } from 'react';
+
+import api from '../../../api/axiosConfig';
+import { formatCurrency } from '../../../utils/format';
+import { useAdminAction } from '../adminShared';
+
+const FREE_DAY_PRESETS = [3, 7, 15, 30];
+const PENALTY_PRESETS = [0, 20, 30, 50];
+const EXAMPLE_PAYMENT = 1000000;
+
+function PresetChips({ values, current, suffix, onPick, label }) {
+  return (
+    <div className="admin-filters settings-presets" role="group" aria-label={label}>
+      {values.map((value) => (
+        <button
+          key={value}
+          type="button"
+          className="chip"
+          aria-pressed={Number(current) === value}
+          onClick={() => onPick(String(value))}
+        >
+          {value}{suffix}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function SettingsSection() {
+  const [days, setDays] = useState('');
+  const [freeDays, setFreeDays] = useState('');
+  const [penalty, setPenalty] = useState('');
+  const [reminderDays, setReminderDays] = useState('');
+  const saveReminder = useAdminAction();
+  const runReminders = useAdminAction();
+  const [saved, setSaved] = useState(null);
+  const [loaded, setLoaded] = useState(false);
+  const save = useAdminAction();
+  const savePolicy = useAdminAction();
+  const generate = useAdminAction();
+
+  const applySettings = (data) => {
+    setDays(String(data.dias_pago_proveedores));
+    setFreeDays(String(data.dias_cancelacion_gratis));
+    setPenalty(String(data.porcentaje_penalidad_cancelacion));
+    setReminderDays(String(data.dias_recordatorio_viaje));
+    setSaved(data);
+  };
+
+  useEffect(() => {
+    api.get('/settings/')
+      .then((response) => applySettings(response.data))
+      .finally(() => setLoaded(true));
+  }, []);
+
+  const handleSave = async (event) => {
+    event.preventDefault();
+    const { ok, result } = await save.run(
+      () => api.patch('/settings/', { dias_pago_proveedores: Number(days) }),
+      'Plazo de pago actualizado. Aplica a las órdenes que se generen desde ahora.'
+    );
+    if (ok) applySettings(result.data);
+  };
+
+  const handleSavePolicy = async (event) => {
+    event.preventDefault();
+    const { ok, result } = await savePolicy.run(
+      () => api.patch('/settings/', {
+        dias_cancelacion_gratis: Number(freeDays),
+        porcentaje_penalidad_cancelacion: Number(penalty),
+      }),
+      'Política de cancelación actualizada. Aplica a las cancelaciones que se hagan desde ahora.'
+    );
+    if (ok) applySettings(result.data);
+  };
+
+  const handleSaveReminder = async (event) => {
+    event.preventDefault();
+    const { ok, result } = await saveReminder.run(
+      () => api.patch('/settings/', { dias_recordatorio_viaje: Number(reminderDays) }),
+      'Recordatorio actualizado.'
+    );
+    if (ok) applySettings(result.data);
+  };
+
+  const handleRunReminders = async () => {
+    const { ok, result } = await runReminders.run(() => api.post('/reminders/run'));
+    if (ok) {
+      const count = result.data.enviados;
+      runReminders.clear();
+      await runReminders.run(
+        async () => {},
+        count === 0 ? 'No había recordatorios pendientes.' : `Se enviaron ${count} ${count === 1 ? 'recordatorio' : 'recordatorios'}.`
+      );
+    }
+  };
+
+  const handleGenerate = async () => {
+    const { ok, result } = await generate.run(() => api.post('/provider-payments/generate'));
+    if (ok) {
+      const count = result.data.ordenes_creadas;
+      generate.clear();
+      await generate.run(
+        async () => {},
+        count === 0
+          ? 'No faltaba ninguna orden: todas las reservas confirmadas ya tienen sus órdenes.'
+          : `Se generaron ${count} ${count === 1 ? 'orden' : 'órdenes'} de pago.`
+      );
+    }
+  };
+
+  if (!loaded) return <p className="page-status">Cargando configuración...</p>;
+
+  const penaltyValue = Math.min(Math.max(Number(penalty) || 0, 0), 100);
+  const policyChanged = saved
+    && (Number(freeDays) !== saved.dias_cancelacion_gratis || Number(penalty) !== saved.porcentaje_penalidad_cancelacion);
+
+  return (
+    <>
+      <div className="admin-header">
+        <div>
+          <h1>Configuración</h1>
+          <p>Reglas generales de la operación de Travelers.</p>
+        </div>
+      </div>
+
+      <div className="admin-two-columns">
+        <form className="surface" onSubmit={handleSave}>
+          <div className="admin-panel-header"><h2>Pago a proveedores</h2></div>
+          {save.message && <div className="alert alert-success">{save.message}</div>}
+          {save.error && <div className="alert alert-error">{save.error}</div>}
+
+          <div className="field">
+            <label htmlFor="setting-days">Plazo de pago (días después del viaje)</label>
+            <input
+              id="setting-days"
+              type="number"
+              min="0"
+              max="180"
+              value={days}
+              onChange={(event) => setDays(event.target.value)}
+              required
+            />
+            <span className="field-hint">
+              Cada orden vence {days || 0} días después de la fecha de viaje de la reserva.
+            </span>
+          </div>
+          <button type="submit" className="btn btn-primary" disabled={save.busy}>
+            {save.busy ? 'Guardando...' : 'Guardar'}
+          </button>
+        </form>
+
+        <div className="surface">
+          <div className="admin-panel-header"><h2>Órdenes de reservas anteriores</h2></div>
+          {generate.message && <div className="alert alert-success">{generate.message}</div>}
+          {generate.error && <div className="alert alert-error">{generate.error}</div>}
+          <p className="admin-muted" style={{ textAlign: 'left', margin: '0 0 16px', lineHeight: 1.55 }}>
+            Las órdenes se crean solas al pagar una reserva. Si tienes reservas confirmadas de antes de esta función,
+            genera aquí sus órdenes. No duplica las que ya existen.
+          </p>
+          <button type="button" className="btn btn-secondary" onClick={handleGenerate} disabled={generate.busy}>
+            {generate.busy ? 'Generando...' : 'Generar órdenes faltantes'}
+          </button>
+        </div>
+      </div>
+
+      <form className="surface settings-block" onSubmit={handleSaveReminder}>
+        <div className="admin-panel-header">
+          <h2>Recordatorio antes del viaje</h2>
+        </div>
+        <p className="settings-policy-summary">
+          Los viajeros con reserva confirmada reciben un correo y un aviso en la campana
+          {' '}<strong>{saved.dias_recordatorio_viaje} {saved.dias_recordatorio_viaje === 1 ? 'día' : 'días'}</strong> antes de su viaje.
+          El sistema revisa cada hora; no se envía dos veces.
+        </p>
+        {saveReminder.message && <div className="alert alert-success">{saveReminder.message}</div>}
+        {saveReminder.error && <div className="alert alert-error">{saveReminder.error}</div>}
+        {runReminders.message && <div className="alert alert-success">{runReminders.message}</div>}
+        {runReminders.error && <div className="alert alert-error">{runReminders.error}</div>}
+        <div className="field">
+          <label htmlFor="setting-reminder">Días de anticipación</label>
+          <PresetChips values={[1, 3, 5, 7]} current={reminderDays} suffix=" días" onPick={setReminderDays} label="Días sugeridos" />
+          <input
+            id="setting-reminder"
+            type="number"
+            min="1"
+            max="30"
+            value={reminderDays}
+            onChange={(event) => setReminderDays(event.target.value)}
+            required
+          />
+        </div>
+        <div className="admin-form-actions">
+          <button type="button" className="btn btn-secondary" onClick={handleRunReminders} disabled={runReminders.busy}>
+            {runReminders.busy ? 'Enviando...' : 'Enviar pendientes ahora'}
+          </button>
+          <button
+            type="submit"
+            className="btn btn-primary"
+            disabled={saveReminder.busy || Number(reminderDays) === saved.dias_recordatorio_viaje}
+          >
+            {saveReminder.busy ? 'Guardando...' : 'Guardar'}
+          </button>
+        </div>
+      </form>
+
+      <form className="surface" onSubmit={handleSavePolicy}>
+        <div className="admin-panel-header">
+          <h2>Política de cancelación</h2>
+        </div>
+        <p className="settings-policy-summary">
+          Gratis hasta <strong>{saved.dias_cancelacion_gratis} días</strong> antes del viaje; después se cobra
+          {' '}<strong>{saved.porcentaje_penalidad_cancelacion} %</strong> de lo pagado. Desde el día del viaje ya no se puede cancelar.
+        </p>
+        {savePolicy.message && <div className="alert alert-success">{savePolicy.message}</div>}
+        {savePolicy.error && <div className="alert alert-error">{savePolicy.error}</div>}
+
+        <div className="admin-two-columns settings-policy-grid">
+          <div className="field">
+            <label htmlFor="setting-free-days">Días de cancelación gratis</label>
+            <PresetChips values={FREE_DAY_PRESETS} current={freeDays} suffix=" días" onPick={setFreeDays} label="Días sugeridos" />
+            <input
+              id="setting-free-days"
+              type="number"
+              min="0"
+              max="90"
+              value={freeDays}
+              onChange={(event) => setFreeDays(event.target.value)}
+              required
+            />
+            <span className="field-hint">
+              {Number(freeDays) === 0
+                ? 'Sin periodo gratis: siempre se cobra penalidad si ya pagó.'
+                : `Quien cancele ${freeDays} días o más antes del viaje recibe el reembolso completo.`}
+            </span>
+          </div>
+
+          <div className="field">
+            <label htmlFor="setting-penalty">Penalidad por cancelación tardía (%)</label>
+            <PresetChips values={PENALTY_PRESETS} current={penalty} suffix=" %" onPick={setPenalty} label="Porcentajes sugeridos" />
+            <input
+              id="setting-penalty"
+              type="number"
+              min="0"
+              max="100"
+              value={penalty}
+              onChange={(event) => setPenalty(event.target.value)}
+              required
+            />
+            <span className="field-hint">
+              Ejemplo: sobre un pago de {formatCurrency(EXAMPLE_PAYMENT)} se retienen
+              {' '}{formatCurrency((EXAMPLE_PAYMENT * penaltyValue) / 100)} y se reembolsan
+              {' '}{formatCurrency((EXAMPLE_PAYMENT * (100 - penaltyValue)) / 100)}.
+            </span>
+          </div>
+        </div>
+
+        <button type="submit" className="btn btn-primary" disabled={savePolicy.busy || !policyChanged}>
+          {savePolicy.busy ? 'Guardando...' : 'Guardar política'}
+        </button>
+      </form>
+    </>
+  );
+}
+
+export default SettingsSection;

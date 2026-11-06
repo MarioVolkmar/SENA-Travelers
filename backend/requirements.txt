@@ -16,3 +16,11 @@ python-multipart
 
 pytest
 httpx
+
+google-auth
+requests
+boto3
+
+# PDF (voucher y reportes) y Excel
+reportlab
+openpyxl

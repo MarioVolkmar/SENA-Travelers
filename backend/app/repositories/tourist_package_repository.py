@@ -55,12 +55,17 @@ class TouristPackageRepository:
     def list_packages(self):
         return self.db.query(TouristPackageModel).all()
 
-    def list_active_packages(self):
-        return (
+    def list_active_packages(self, ends_after=None):
+        """Paquetes activos; con ends_after solo los que terminan después de esa fecha."""
+        query = (
             self.db.query(TouristPackageModel)
             .filter(TouristPackageModel.estado == TOURIST_PACKAGE_STATUS_ACTIVE)
-            .all()
         )
+
+        if ends_after is not None:
+            query = query.filter(TouristPackageModel.fecha_fin > ends_after)
+
+        return query.order_by(TouristPackageModel.fecha_inicio.asc()).all()
 
     def list_by_city_id(self, ciudad_id: int):
         return (
@@ -69,13 +74,17 @@ class TouristPackageRepository:
             .all()
         )
 
-    def list_active_by_city_id(self, ciudad_id: int):
-        return (
+    def list_active_by_city_id(self, ciudad_id: int, ends_after=None):
+        query = (
             self.db.query(TouristPackageModel)
             .filter(TouristPackageModel.ciudades_id_ciudad == ciudad_id)
             .filter(TouristPackageModel.estado == TOURIST_PACKAGE_STATUS_ACTIVE)
-            .all()
         )
+
+        if ends_after is not None:
+            query = query.filter(TouristPackageModel.fecha_fin > ends_after)
+
+        return query.order_by(TouristPackageModel.fecha_inicio.asc()).all()
 
     def list_package_products(self, package_id: int):
         return (

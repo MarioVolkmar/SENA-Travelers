@@ -39,6 +39,8 @@ class TouristPackageUpdate(BaseModel):
     fecha_fin: Optional[date] = None
     cupo_max: Optional[int] = Field(None, gt=0)
     ciudad_id: Optional[int] = Field(None, gt=0)
+    # Si se envía, reemplaza la lista completa de productos del paquete
+    productos: Optional[List[TouristPackageProductCreate]] = Field(None, min_length=1)
 
 
 class TouristPackageStatusUpdate(BaseModel):

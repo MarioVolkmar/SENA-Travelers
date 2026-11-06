@@ -1,3 +1,4 @@
+import os
 from sqlalchemy.orm import Session
 
 from app.models.notification_email_model import NotificationEmailModel
@@ -15,8 +16,11 @@ from app.core.constants import (
     NOTIFICATION_TYPE_RESERVATION_CONFIRMATION,
     NOTIFICATION_TYPE_PAYMENT_CONFIRMATION,
     NOTIFICATION_TYPE_PASSWORD_RESET,
-    EMAIL_STATUS_SENT_SIMULATED,
-    EMAIL_STATUS_FAILED
+    NOTIFICATION_TYPE_RESERVATION_CANCELLATION,
+    NOTIFICATION_TYPE_TRIP_REMINDER,
+    EMAIL_STATUS_SENT,
+    EMAIL_STATUS_FAILED,
+    EMAIL_STATUS_DISABLED
 )
 
 
@@ -59,13 +63,13 @@ class NotificationEmailService:
         reservas_id_reserva: int | None = None
     ):
         try:
-            self.email_sender_service.send_email(
+            sent = self.email_sender_service.send_email(
                 to_email=destinatario,
                 subject=asunto,
                 message=mensaje
             )
 
-            estado_envio = EMAIL_STATUS_SENT_SIMULATED
+            estado_envio = EMAIL_STATUS_SENT if sent else EMAIL_STATUS_DISABLED
 
         except Exception:
             estado_envio = EMAIL_STATUS_FAILED
@@ -187,6 +191,52 @@ class NotificationEmailService:
             reservas_id_reserva=reservation.id_reserva
         )
 
+    def create_reservation_cancellation_email(
+        self,
+        user: UserModel,
+        reservation: ReservationModel,
+        by_admin: bool = False
+    ):
+        self._ensure_valid_user_for_notification(user)
+
+        if reservation is None or reservation.id_reserva is None:
+            raise ValueError("Reserva inválida")
+
+        penalidad = reservation.penalidad_cancelacion or 0
+        reembolso = reservation.reembolso or 0
+
+        if by_admin:
+            detalle = "La cancelación la realizó Travelers, así que no tiene penalidad.\n" + (
+                f"Se reembolsa el valor completo de {reembolso}.\n"
+                if reembolso > 0
+                else "La reserva no tenía pagos registrados.\n"
+            )
+        elif reembolso > 0 and penalidad > 0:
+            detalle = (
+                f"Como cancelaste después del plazo sin penalidad, se aplicó una penalidad de {penalidad}.\n"
+                f"Valor a reembolsar: {reembolso}\n"
+            )
+        elif reembolso > 0:
+            detalle = f"Cancelaste dentro del plazo: se reembolsa el valor completo de {reembolso}.\n"
+        else:
+            detalle = "La reserva no tenía pagos registrados, así que no hay cobros ni reembolsos.\n"
+
+        mensaje = (
+            f"Hola {user.nombre},\n\n"
+            f"Tu reserva {reservation.codigo_reserva} fue cancelada.\n\n"
+            f"{detalle}\n"
+            f"Esperamos verte pronto en Travelers."
+        )
+
+        return self._send_and_save_notification(
+            destinatario=user.email,
+            asunto="Cancelación de reserva - Travelers",
+            mensaje=mensaje,
+            tipo_notificacion=NOTIFICATION_TYPE_RESERVATION_CANCELLATION,
+            usuarios_id_usuario=user.id_usuario,
+            reservas_id_reserva=reservation.id_reserva
+        )
+
     def get_notification_by_id(
         self,
         id_notificacion_email: int,
@@ -242,4 +292,38 @@ class NotificationEmailService:
             tipo_notificacion=NOTIFICATION_TYPE_PASSWORD_RESET,
             usuarios_id_usuario=user.id_usuario,
             reservas_id_reserva=None
+        )
+    def create_trip_reminder_email(
+        self,
+        user: UserModel,
+        reservation: ReservationModel,
+        package_name: str,
+        days_left: int
+    ):
+        self._ensure_valid_user_for_notification(user)
+
+        frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173").rstrip("/")
+        cuando = "mañana" if days_left == 1 else f"en {days_left} días"
+
+        asunto = f"Tu viaje es {cuando} - Travelers"
+
+        mensaje = (
+            f"Hola {user.nombre},\n\n"
+            f"¡Ya casi! Tu viaje «{package_name}» es {cuando}, "
+            f"el {reservation.fecha_reserva:%d/%m/%Y}.\n\n"
+            f"Código de reserva: {reservation.codigo_reserva}\n"
+            f"Viajeros: {reservation.cantidad_personas}\n\n"
+            f"Descarga tu voucher con código QR desde Mis reservas:\n"
+            f"{frontend_url}/reservations\n\n"
+            f"Lleva tu documento de identidad. ¡Buen viaje!\n"
+            f"Equipo Travelers"
+        )
+
+        return self._send_and_save_notification(
+            destinatario=user.email,
+            asunto=asunto,
+            mensaje=mensaje,
+            tipo_notificacion=NOTIFICATION_TYPE_TRIP_REMINDER,
+            usuarios_id_usuario=user.id_usuario,
+            reservas_id_reserva=reservation.id_reserva
         )

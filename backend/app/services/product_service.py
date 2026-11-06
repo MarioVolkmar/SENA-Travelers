@@ -147,6 +147,7 @@ class ProductService:
             costo=product_data.costo,
             ciudad_id=product_data.ciudad_id,
             proveedor_id=provider.id_proveedor,
+            unidad_cobro=product_data.unidad_cobro,
             estado=PRODUCT_STATUS_ACTIVE
         )
 

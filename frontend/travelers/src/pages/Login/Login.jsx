@@ -1,14 +1,16 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 
 
 import api from '../../api/axiosConfig';
 import { useAuth } from '../../context/AuthContext';
+import GoogleButton from '../../components/GoogleButton/GoogleButton';
 
 import './Login.css';
 
 function Login() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { login } = useAuth();
 
   const [formData, setFormData] = useState({
@@ -44,7 +46,7 @@ const handleSubmit = async (event) => {
 
     await login(response.data.access_token);
 
-    navigate('/');
+    navigate(location.state?.from || '/');
   } catch (error) {
     const errorMessage =
       error.response?.data?.detail || 'Error al iniciar sesión';
@@ -69,6 +71,8 @@ const handleSubmit = async (event) => {
             {error}
           </div>
         )}
+
+        <GoogleButton text="signin_with" redirectTo={location.state?.from || '/'} />
 
         <div className="form-group">
           <label htmlFor="email">Correo electrónico</label>

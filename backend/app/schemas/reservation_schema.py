@@ -12,6 +12,7 @@ class ReservationCreate(BaseModel):
     fecha_reserva: date
     cantidad_personas: int = Field(..., gt=0)
     acompanantes: List[CompanionCreate] = []
+    codigo_cupon: Optional[str] = Field(None, max_length=30)
 
 
 class ReservationStatusUpdate(BaseModel):
@@ -28,8 +29,35 @@ class ReservationResponse(BaseModel):
     total_reserva: Decimal
     estado: str
     codigo_reserva: str
+    fecha_cancelacion: Optional[datetime] = None
+    penalidad_cancelacion: Optional[Decimal] = None
+    reembolso: Optional[Decimal] = None
+    cupon_id: Optional[int] = None
+    descuento_cupon: Optional[Decimal] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class CancellationPolicyResponse(BaseModel):
+    dias_sin_penalidad: int
+    porcentaje_penalidad: int
+
+
+class CancellationPreviewResponse(BaseModel):
+    puede_cancelar: bool
+    motivo: Optional[str] = None
+    fecha_limite_sin_penalidad: date
+    con_penalidad: bool
+    porcentaje_penalidad: int
+    monto_pagado: Decimal
+    penalidad: Decimal
+    reembolso: Decimal
+
+
+class PackageAvailabilityResponse(BaseModel):
+    id_paquete_turistico: int
+    cupo_max: int
+    cupos_disponibles: int
 
 
 class ReservationDetailResponse(ReservationResponse):

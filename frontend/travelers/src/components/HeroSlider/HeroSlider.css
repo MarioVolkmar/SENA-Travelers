@@ -1,0 +1,443 @@
+/* Slider de destinos con apertura de tarjetas (inspirado en "Timed Card Opening") */
+
+.hero-slider {
+  position: relative;
+  min-height: max(640px, 100vh);
+  overflow: hidden;
+  color: #ffffff;
+  background: #0b1520;
+  display: flex;
+  flex-direction: column;
+}
+
+.hero-slider-bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  animation: hero-bg-in 1.2s ease both;
+}
+
+.hero-slider-shade {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(90deg, rgba(5, 12, 20, 0.82) 0%, rgba(5, 12, 20, 0.45) 45%, rgba(5, 12, 20, 0.15) 100%),
+    linear-gradient(180deg, rgba(5, 12, 20, 0.55) 0%, rgba(5, 12, 20, 0) 25%, rgba(5, 12, 20, 0) 65%, rgba(5, 12, 20, 0.75) 100%);
+}
+
+/* Tarjeta que crece hasta cubrir el fondo */
+.hero-slider-opening {
+  position: absolute;
+  z-index: 3;
+  background-size: cover;
+  background-position: center;
+  transition:
+    top 0.9s cubic-bezier(0.77, 0, 0.18, 1),
+    left 0.9s cubic-bezier(0.77, 0, 0.18, 1),
+    width 0.9s cubic-bezier(0.77, 0, 0.18, 1),
+    height 0.9s cubic-bezier(0.77, 0, 0.18, 1),
+    border-radius 0.9s cubic-bezier(0.77, 0, 0.18, 1);
+}
+
+.hero-slider-inner {
+  position: relative;
+  z-index: 2;
+  flex: 1;
+  width: 100%;
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: 150px 32px 40px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+  align-items: end;
+  gap: 40px;
+}
+
+/* ---------- Texto del destino activo ---------- */
+
+.hero-slider-text {
+  max-width: 560px;
+  padding-bottom: 12px;
+}
+
+.hero-slider-text > * {
+  animation: hero-text-in 0.8s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+.hero-slider-text > :nth-child(2) { animation-delay: 0.08s; }
+.hero-slider-text > :nth-child(3) { animation-delay: 0.16s; }
+.hero-slider-text > :nth-child(4) { animation-delay: 0.24s; }
+.hero-slider-text > :nth-child(5) { animation-delay: 0.32s; }
+
+.hero-slider-location {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  margin: 0 0 12px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.hero-slider-location::before {
+  content: '';
+  width: 32px;
+  height: 2px;
+  background: var(--color-accent);
+}
+
+.hero-slider-location span {
+  color: rgba(255, 255, 255, 0.75);
+  font-weight: 500;
+}
+
+.hero-slider-text h1 {
+  margin: 0;
+  color: #ffffff;
+  font-family: 'Oswald', var(--font-display);
+  font-weight: 600;
+  /* Nombres largos (Villa de Leyva, Santa Marta) pasan a otra línea entre palabras, nunca a mitad de una */
+  font-size: clamp(2.8rem, 6.6vw, 7rem);
+  line-height: 0.95;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+  overflow-wrap: normal;
+  word-break: normal;
+  hyphens: none;
+}
+
+.hero-slider-name {
+  margin: 14px 0 0;
+  font-family: 'Oswald', var(--font-display);
+  font-size: 1.35rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.hero-slider-description {
+  margin: 14px 0 0;
+  max-width: 460px;
+  font-size: 1rem;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.hero-slider-actions {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  flex-wrap: wrap;
+  margin-top: 26px;
+}
+
+.hero-slider-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 52px;
+  padding: 6px 24px 6px 6px;
+  border: 1.5px solid rgba(255, 255, 255, 0.55);
+  border-radius: 999px;
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 0.85rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-decoration: none;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.hero-slider-cta:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: #ffffff;
+  color: #ffffff;
+}
+
+.hero-slider-cta-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  background: #f5a524;
+  color: #1a1206;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.hero-slider-price {
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 0.95rem;
+}
+
+.hero-slider-price strong {
+  display: block;
+  color: #ffffff;
+  font-family: 'Oswald', var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+/* ---------- Tarjetas de los siguientes destinos ---------- */
+
+.hero-slider-cards {
+  display: flex;
+  gap: 18px;
+  justify-content: flex-start;
+  overflow: hidden;
+  padding: 8px 0 12px 4px;
+}
+
+.hero-card {
+  position: relative;
+  flex: 0 0 auto;
+  width: clamp(150px, 13vw, 190px);
+  aspect-ratio: 3 / 4.4;
+  padding: 0;
+  border: none;
+  border-radius: 18px;
+  overflow: hidden;
+  cursor: pointer;
+  background: #1c2733;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
+  animation: hero-card-in 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  animation-delay: calc(var(--order) * 0.08s + 0.2s);
+  transition: transform 0.3s ease;
+}
+
+.hero-card:hover {
+  transform: translateY(-8px);
+}
+
+.hero-card:focus-visible {
+  outline: 3px solid var(--color-accent);
+  outline-offset: 3px;
+}
+
+.hero-card.is-opening {
+  visibility: hidden;
+}
+
+.hero-card img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.hero-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0) 40%, rgba(0, 0, 0, 0.8) 100%);
+}
+
+.hero-card-text {
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  bottom: 14px;
+  z-index: 1;
+  text-align: left;
+  color: #ffffff;
+}
+
+.hero-card-text small {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.hero-card-text strong {
+  display: block;
+  margin-top: 4px;
+  font-family: 'Oswald', var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 500;
+  line-height: 1.1;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+/* ---------- Controles inferiores ---------- */
+
+.hero-slider-controls {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: 0 32px 40px;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.hero-slider-buttons {
+  display: flex;
+  gap: 10px;
+}
+
+.hero-slider-buttons button {
+  width: 48px;
+  height: 48px;
+  border: 1.5px solid rgba(255, 255, 255, 0.55);
+  border-radius: 999px;
+  background: transparent;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.hero-slider-buttons button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: #ffffff;
+}
+
+.hero-slider-buttons button:disabled {
+  opacity: 0.5;
+}
+
+.hero-slider-pause-icon {
+  width: 10px;
+  height: 12px;
+  border-left: 3px solid currentColor;
+  border-right: 3px solid currentColor;
+}
+
+.hero-slider-progress {
+  flex: 1;
+  height: 3px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.25);
+  overflow: hidden;
+}
+
+.hero-slider-progress span {
+  display: block;
+  height: 100%;
+  background: #f5a524;
+  transform-origin: left;
+  animation-name: hero-progress;
+  animation-timing-function: linear;
+  animation-fill-mode: both;
+}
+
+.hero-slider-count {
+  margin: 0;
+  font-family: 'Oswald', var(--font-display);
+  font-size: 3rem;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.hero-slider-count small {
+  font-size: 1rem;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.hero-slider-badge {
+  position: absolute;
+  z-index: 2;
+  top: 112px;
+  right: 32px;
+  margin: 0;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  backdrop-filter: blur(6px);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+/* ---------- Animaciones ---------- */
+
+@keyframes hero-bg-in {
+  from { transform: scale(1.06); }
+  to { transform: scale(1); }
+}
+
+@keyframes hero-text-in {
+  from { opacity: 0; transform: translateY(24px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes hero-card-in {
+  from { opacity: 0; transform: translateX(40px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes hero-progress {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-slider-bg,
+  .hero-slider-text > *,
+  .hero-card {
+    animation: none;
+  }
+
+  .hero-slider-progress span {
+    animation: none;
+    transform: scaleX(1);
+    opacity: 0.4;
+  }
+}
+
+/* ---------- Pantallas pequeñas ---------- */
+
+@media (max-width: 1000px) {
+  .hero-slider-inner {
+    grid-template-columns: 1fr;
+    align-items: end;
+    gap: 28px;
+  }
+
+  .hero-slider-cards {
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .hero-card {
+    width: 140px;
+  }
+
+  .hero-slider-badge {
+    display: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .hero-slider {
+    min-height: 720px;
+  }
+
+  .hero-slider-inner {
+    padding: 130px 20px 24px;
+  }
+
+  .hero-slider-controls {
+    padding: 0 20px 28px;
+    gap: 14px;
+  }
+
+  .hero-slider-count {
+    font-size: 2.2rem;
+  }
+
+  .hero-card {
+    width: 118px;
+  }
+}

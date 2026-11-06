@@ -1,51 +1,290 @@
 .home {
-  min-height: calc(100vh - 80px);
-  background-image: url('../../assets/images/fondo.png');
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
+  padding-bottom: 56px;
 }
 
-.home-overlay {
-  min-height: calc(100vh - 80px);
-  background: rgba(15, 23, 42, 0.45);
+/* ---------- Portada ---------- */
+
+.home-hero {
+  position: relative;
+  min-height: 680px;
+  overflow: hidden;
+  border-radius: 0 0 var(--radius-xl) var(--radius-xl);
   display: flex;
-  justify-content: center;
   align-items: center;
-  padding: 2rem;
 }
 
-.home-content {
-  max-width: 850px;
-  text-align: center;
-  color: white;
+.home-hero-image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
-.home-content h1 {
-  font-size: 3.5rem;
-  margin-bottom: 1rem;
-  font-weight: 800;
+.home-hero-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(8, 20, 32, 0.55) 0%,
+    rgba(8, 20, 32, 0.15) 40%,
+    rgba(8, 20, 32, 0.7) 100%
+  );
 }
 
-.home-content p {
-  font-size: 1.3rem;
-  margin-bottom: 2rem;
-  color: #f9fafb;
+.home-hero-content {
+  position: relative;
+  width: 100%;
+  max-width: var(--container);
+  margin: 0 auto;
+  padding: 140px 24px 120px;
+  color: #ffffff;
 }
 
-.home-button {
+.home-hero-tag {
   display: inline-block;
-  padding: 1rem 1.8rem;
-  background-color: #0891b2;
-  color: white;
-  text-decoration: none;
-  border-radius: 8px;
-  font-weight: 700;
-  font-size: 1rem;
-  transition: 0.2s ease;
+  margin: 0 0 18px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.18);
+  font-size: 0.9rem;
+  font-weight: 600;
 }
 
-.home-button:hover {
-  background-color: #0e7490;
-  transform: translateY(-2px);
+.home-hero h1 {
+  margin: 0;
+  max-width: 760px;
+  color: #ffffff;
+  font-size: clamp(2.6rem, 6vw, 4.5rem);
+  line-height: 1.02;
+  letter-spacing: -0.03em;
+}
+
+.home-hero-lead {
+  margin: 20px 0 0;
+  max-width: 560px;
+  font-size: 1.18rem;
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+/* ---------- Buscador ---------- */
+
+.home-search {
+  position: relative;
+  z-index: 2;
+  max-width: 1080px;
+  margin: 40px auto 0;
+  padding: 12px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 8px;
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+
+.home-search-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 18px;
+  border-radius: 16px;
+  background: var(--color-bg);
+  cursor: pointer;
+}
+
+.home-search-field span {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-muted);
+}
+
+.home-search-field select {
+  border: none;
+  background: transparent;
+  padding: 0;
+  font: 600 1rem var(--font-body);
+  color: var(--color-ink);
+  cursor: pointer;
+}
+
+.home-search-field select:focus {
+  outline: none;
+}
+
+.home-search-field:focus-within {
+  box-shadow: 0 0 0 3px var(--color-accent);
+}
+
+.home-search-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 64px;
+  border: none;
+  border-radius: 16px;
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  font: 700 1rem var(--font-body);
+  cursor: pointer;
+}
+
+.home-search-button:hover {
+  background: var(--color-primary-dark);
+}
+
+/* ---------- Secciones ---------- */
+
+/* margin (no padding) para no chocar con el padding horizontal de .container */
+.home-section {
+  margin-top: 88px;
+}
+
+.home-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 28px;
+}
+
+.home-section-header h2 {
+  margin: 0;
+  font-size: clamp(2rem, 3.5vw, 2.75rem);
+}
+
+.home-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 28px 24px;
+}
+
+.home-features {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 20px;
+}
+
+.home-feature {
+  padding: 32px;
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+
+.home-feature-icon {
+  width: 52px;
+  height: 52px;
+  margin-bottom: 20px;
+  border-radius: 16px;
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.home-feature h3 {
+  margin: 0 0 8px;
+  font-family: var(--font-body);
+  letter-spacing: 0;
+  font-size: 1.25rem;
+}
+
+.home-feature p {
+  margin: 0;
+  color: var(--color-muted);
+  line-height: 1.6;
+}
+
+/* ---------- Banner ---------- */
+
+.home-banner {
+  position: relative;
+  min-height: 340px;
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+}
+
+.home-banner-image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.home-banner-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, rgba(8, 20, 32, 0.82) 0%, rgba(8, 20, 32, 0.2) 75%);
+}
+
+.home-banner-content {
+  position: relative;
+  padding: 56px;
+  max-width: 580px;
+  color: #ffffff;
+}
+
+.home-banner-content h2 {
+  margin: 0 0 14px;
+  color: #ffffff;
+  font-size: clamp(1.9rem, 3.5vw, 2.5rem);
+  line-height: 1.1;
+}
+
+.home-banner-content p {
+  margin: 0 0 28px;
+  font-size: 1.05rem;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.home-banner-button {
+  display: inline-flex;
+  align-items: center;
+  min-height: 52px;
+  padding: 0 26px;
+  border-radius: 999px;
+  background: #ffffff;
+  color: var(--color-night);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.home-banner-button:hover {
+  color: var(--color-primary);
+}
+
+@media (max-width: 640px) {
+  .home-hero {
+    min-height: 600px;
+  }
+
+  .home-hero-content {
+    padding: 150px 16px 110px;
+  }
+
+  .home-search {
+    margin: 28px 16px 0;
+  }
+
+  .home-section {
+    margin-top: 64px;
+  }
+
+  .home-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .home-banner-content {
+    padding: 32px 24px;
+  }
 }

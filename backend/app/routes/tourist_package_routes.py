@@ -13,6 +13,7 @@ from app.schemas.tourist_package_schema import (
     TouristPackageUpdate,
     TouristPackageStatusUpdate,
     TouristPackageResponse,
+    TouristPackageDetailResponse,
 )
 
 from app.services.tourist_package_service import TouristPackageService
@@ -95,7 +96,7 @@ def list_packages_admin(
 
 @router.get(
     "/admin/{id_paquete_turistico}",
-    response_model=TouristPackageResponse
+    response_model=TouristPackageDetailResponse
 )
 def get_package_by_id_admin(
     id_paquete_turistico: int,
@@ -105,10 +106,13 @@ def get_package_by_id_admin(
     try:
         tourist_package_service = TouristPackageService(db)
 
-        return tourist_package_service.get_package_by_id_admin(
+        tourist_package, productos = tourist_package_service.get_package_detail_admin(
             id_paquete_turistico,
             current_user
         )
+
+        detail = TouristPackageResponse.model_validate(tourist_package).model_dump()
+        return TouristPackageDetailResponse(**detail, productos=productos)
 
     except PermissionError as error:
         raise HTTPException(

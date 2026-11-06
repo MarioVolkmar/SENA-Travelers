@@ -15,9 +15,12 @@ from app.schemas.product_schema import (
     ProductUpdate,
     ProductStatusUpdate,
     ProductProviderUpdate,
-    ProductResponse
+    ProductResponse,
+    ProductTypeResponse,
+    ProductUnitResponse,
 )
 
+from app.core.constants import PRODUCT_TYPES, PRODUCT_UNITS
 from app.services.product_service import ProductService
 
 
@@ -69,6 +72,27 @@ def list_active_products(
 ):
     product_service = ProductService(db)
     return product_service.list_active_products()
+
+
+@router.get(
+    "/types",
+    response_model=List[ProductTypeResponse]
+)
+def list_product_types():
+    """Catálogo de tipos de producto (hospedaje, alimentación, transporte...)."""
+    return [
+        {"clave": key, "nombre": name, "ejemplos": examples}
+        for key, (name, examples) in PRODUCT_TYPES.items()
+    ]
+
+
+@router.get(
+    "/units",
+    response_model=List[ProductUnitResponse]
+)
+def list_product_units():
+    """Unidades de cobro: por persona, por noche, por día o por servicio."""
+    return [{"clave": key, "nombre": name} for key, name in PRODUCT_UNITS.items()]
 
 
 @router.get(

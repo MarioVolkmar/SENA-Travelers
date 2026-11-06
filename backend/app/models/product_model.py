@@ -17,3 +17,5 @@ class ProductModel(Base):
     tipo_producto = Column(String(45), nullable=False)
     estado = Column(String(45), nullable=False, default="activo")
     costo = Column(DECIMAL(10, 2), nullable=False)
+    # Cómo se cobra el costo: persona, noche, dia o servicio (ver PRODUCT_UNITS)
+    unidad_cobro = Column(String(20), nullable=False, default="persona", server_default="persona")

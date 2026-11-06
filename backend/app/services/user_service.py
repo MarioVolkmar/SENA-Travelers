@@ -1,5 +1,6 @@
 from sqlalchemy.orm import Session
 import os
+import secrets
 
 from app.models.user_model import UserModel
 from app.repositories.user_repository import UserRepository
@@ -15,7 +16,11 @@ from app.core.security import (
     verify_password_reset_token,
 )
 
+from app.models.provider_model import ProviderModel
+from app.repositories.city_repository import CityRepository
+from app.repositories.provider_repository import ProviderRepository
 from app.repositories.role_repository import RoleRepository
+from app.services import google_auth_service
 from app.services.notification_email_service import NotificationEmailService
 
 from app.core.constants import (
@@ -23,14 +28,27 @@ from app.core.constants import (
     CLIENT_ROLE_ID,
     USER_STATUS_ACTIVE,
     USER_STATUS_INACTIVE,
-    EMAIL_VERIFICATION_VERIFIED
+    EMAIL_VERIFICATION_VERIFIED,
+    PROVIDER_STATUS_PENDING,
 )
+
+
+def google_picture(payload: dict):
+    """URL de la foto de Google, solo si es https y cabe en la columna."""
+    picture = (payload.get("picture") or "").strip()
+
+    if picture.startswith("https://") and len(picture) <= 500:
+        return picture
+
+    return None
 
 
 class UserService:
     def __init__(self, db: Session):
         self.user_repository = UserRepository(db)
         self.role_repository = RoleRepository(db)
+        self.city_repository = CityRepository(db)
+        self.provider_repository = ProviderRepository(db)
         self.notification_email_service = NotificationEmailService(db)
 
     def _get_user_or_raise(self, id_usuario: int):
@@ -73,6 +91,14 @@ class UserService:
     def create_user(self, user_data: UserCreate):
         self._ensure_email_available(user_data.email)
 
+        # Registro como proveedor: se valida todo antes de crear la cuenta
+        if user_data.proveedor is not None:
+            if self.city_repository.find_by_id(user_data.proveedor.ciudad_id) is None:
+                raise ValueError("La ciudad no existe")
+
+            if self.provider_repository.find_by_rut(user_data.proveedor.rut.strip()) is not None:
+                raise ValueError("El RUT ya está registrado")
+
         contrasena_hash = hash_password(user_data.password)
 
         user = UserModel(
@@ -83,6 +109,21 @@ class UserService:
         )
 
         created_user = self.user_repository.create_user(user)
+
+        # La cuenta queda como cliente hasta que el administrador apruebe la solicitud
+        if user_data.proveedor is not None:
+            company = user_data.proveedor
+            self.provider_repository.create_provider(
+                ProviderModel(
+                    usuario_id=created_user.id_usuario,
+                    rut=company.rut.strip(),
+                    telefono=company.telefono.strip(),
+                    direccion=company.direccion.strip(),
+                    nombre_empresa=company.nombre_empresa.strip(),
+                    ciudad_id=company.ciudad_id,
+                    estado_verificacion=PROVIDER_STATUS_PENDING,
+                )
+            )
 
         validation_token = create_email_verification_token(data={
             "sub": str(created_user.id_usuario)
@@ -166,8 +207,11 @@ class UserService:
         self._ensure_user_active(user)
         self._ensure_email_validation(user)
 
-        if not verify_password(actual_password, user.contrasena_hash):
-            raise PermissionError("Credenciales incorrectas")
+        # Las cuentas creadas con Google aún no tienen contraseña propia:
+        # pueden crearla sin la actual (ya se autenticaron con Google)
+        if user.tiene_contrasena:
+            if not actual_password or not verify_password(actual_password, user.contrasena_hash):
+                raise PermissionError("Credenciales incorrectas")
 
         changed_password = hash_password(new_password)
 
@@ -205,6 +249,76 @@ class UserService:
             "token_type": "Bearer"
         }
     
+    def login_with_google(self, credential: str):
+        """
+        Inicia sesión (o registra) a un usuario con su cuenta de Google.
+
+        - Si el correo no existe, se crea un cliente ya verificado.
+        - Si existe y estaba pendiente de verificación, Google ya probó que
+          el correo es suyo, así que se marca como verificado.
+        """
+        payload = google_auth_service.verify_google_credential(credential)
+
+        email = payload["email"].strip().lower()
+        google_sub = str(payload.get("sub") or "") or None
+
+        # Primero por la cuenta de Google vinculada (el correo de Google puede cambiar)
+        user = self.user_repository.find_by_google_sub(google_sub) if google_sub else None
+
+        if user is None:
+            user = self.user_repository.find_by_email(email)
+
+        if user is None:
+            nombre = (payload.get("name") or email.split("@")[0]).strip()[:100]
+
+            if len(nombre) < 2:
+                nombre = email.split("@")[0][:100]
+
+            user = self.user_repository.create_user(
+                UserModel(
+                    nombre=nombre,
+                    email=email,
+                    # Contraseña aleatoria: la cuenta entra con Google o
+                    # recuperando la contraseña por correo
+                    contrasena_hash=hash_password(secrets.token_urlsafe(32)),
+                    tiene_contrasena=False,
+                    google_sub=google_sub,
+                    foto_url=google_picture(payload),
+                    rol_id=CLIENT_ROLE_ID,
+                    estado=USER_STATUS_ACTIVE,
+                    verificacion_email=EMAIL_VERIFICATION_VERIFIED
+                )
+            )
+
+        if user.estado != USER_STATUS_ACTIVE:
+            raise PermissionError("El usuario está inactivo")
+
+        # Vincula la cuenta existente con Google la primera vez que entra así
+        if google_sub and user.google_sub is None:
+            user = self.user_repository.link_google_account(user, google_sub)
+
+        # Si no tiene foto, usa la de su cuenta de Google
+        if not user.foto_url and google_picture(payload):
+            user = self.user_repository.update_photo(user, google_picture(payload))
+
+        if user.verificacion_email != EMAIL_VERIFICATION_VERIFIED:
+            user = self.user_repository.update_verification_email(
+                user,
+                EMAIL_VERIFICATION_VERIFIED
+            )
+
+        token = create_access_token(
+            data={
+                "sub": str(user.id_usuario),
+                "rol": user.rol_id
+            }
+        )
+
+        return {
+            "access_token": token,
+            "token_type": "Bearer"
+        }
+
     def request_password_reset(self, email: str):
         user = self.user_repository.find_by_email(email)
         

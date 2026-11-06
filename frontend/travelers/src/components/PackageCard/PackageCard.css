@@ -1,0 +1,232 @@
+.package-card {
+  display: flex;
+  flex-direction: column;
+  color: var(--color-ink);
+  text-decoration: none;
+}
+
+.package-card:hover {
+  color: var(--color-ink);
+}
+
+.package-card-media {
+  position: relative;
+  overflow: hidden;
+  background: var(--color-placeholder);
+}
+
+.package-card-media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.4s ease;
+}
+
+.package-card:hover .package-card-media img {
+  transform: scale(1.04);
+}
+
+.package-card-city {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.94);
+  color: var(--color-night);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.package-card-city svg {
+  color: var(--color-primary);
+}
+
+.package-card-discount {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  background: var(--color-danger-strong);
+  color: #ffffff;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.package-card-slots {
+  position: absolute;
+  bottom: 12px;
+  left: 12px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(15, 30, 46, 0.8);
+  color: #ffffff;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.package-card h3 {
+  margin: 0;
+  font-family: var(--font-body);
+  letter-spacing: 0;
+  font-size: 1.12rem;
+  line-height: 1.3;
+}
+
+.package-card-meta {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 0.92rem;
+}
+
+.package-card-price {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.package-card-price strong {
+  font-family: var(--font-display);
+  font-size: 1.3rem;
+}
+
+.package-card-old-price {
+  color: var(--color-muted);
+  text-decoration: line-through;
+  font-size: 0.9rem;
+}
+
+.package-card-per {
+  color: var(--color-muted);
+  font-size: 0.82rem;
+}
+
+/* ---- Variante destacada (inicio) ---- */
+
+.package-card-featured {
+  gap: 14px;
+}
+
+.package-card-featured .package-card-media {
+  aspect-ratio: 4 / 3;
+  border-radius: var(--radius-lg);
+}
+
+.package-card-featured .package-card-body {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 0 4px;
+}
+
+.package-card-featured .package-card-text {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.package-card-featured .package-card-price {
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0;
+  flex-shrink: 0;
+  text-align: right;
+}
+
+/* ---- Variante tarjeta (listado) ---- */
+
+.package-card-card {
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-soft);
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.package-card-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 16px 36px rgba(8, 20, 32, 0.1);
+}
+
+.package-card-card .package-card-media {
+  aspect-ratio: 5 / 4;
+}
+
+.package-card-card .package-card-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px 20px 20px;
+}
+
+.package-card-card .package-card-text {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.package-card-card .package-card-price {
+  margin-top: auto;
+}
+
+/* Mismo lenguaje que las tarjetas del slider: nombre y precio condensados */
+.package-card h3 {
+  font-family: var(--font-condensed);
+  font-weight: 500;
+  font-size: 1.3rem;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  line-height: 1.15;
+}
+
+.package-card-price strong {
+  font-family: var(--font-condensed);
+  font-weight: 500;
+  font-size: 1.45rem;
+  letter-spacing: 0.02em;
+}
+
+/* El corazón va fuera del enlace (no se anidan botones dentro de <a>) */
+.package-card-wrap {
+  position: relative;
+  display: flex;
+  min-width: 0;
+}
+
+.package-card-wrap > .package-card {
+  flex: 1;
+  min-width: 0;
+}
+
+.package-card-wrap .package-card-city {
+  max-width: calc(100% - 80px);
+}
+
+.package-card-rating {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 6px 0 0;
+  font-size: 0.85rem;
+}
+
+.package-card-rating strong {
+  color: var(--color-ink);
+}
+
+.package-card-rating span {
+  color: var(--color-muted);
+}
+
+/* El descuento baja para dejar la esquina al corazón */
+.package-card-wrap .package-card-discount {
+  top: 62px;
+}

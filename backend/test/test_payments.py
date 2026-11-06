@@ -676,6 +676,7 @@ def test_payment_creates_email_notification(client, db_session):
     )
 
     assert notification is not None
-    assert notification.estado_envio == "enviado_simulado"
+    # En los tests EMAILS_ENABLED=false: se registra sin enviar
+    assert notification.estado_envio == "desactivado"
     assert notification.reservas_id_reserva == reservation["id_reserva"]
     assert notification.usuarios_id_usuario is not None

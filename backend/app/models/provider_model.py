@@ -19,3 +19,9 @@ class ProviderModel(Base):
     fecha_solicitud = Column(DateTime, nullable=False, server_default=func.now())
     estado_verificacion = Column(String(45), nullable=False, default="pendiente")
     ciudad_id = Column(Integer, ForeignKey("ciudades.id_ciudad"), nullable=False)
+
+    # Cuenta donde la agencia transfiere los pagos al proveedor
+    banco = Column(String(60), nullable=True)
+    tipo_cuenta = Column(String(20), nullable=True)
+    numero_cuenta = Column(String(30), nullable=True)
+    titular_cuenta = Column(String(100), nullable=True)

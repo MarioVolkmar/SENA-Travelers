@@ -15,3 +15,13 @@ class ReservationModel(Base):
     total_reserva = Column(DECIMAL(10,2), nullable= False)
     estado = Column(String(45), nullable=False, default="pendiente")
     codigo_reserva = Column(String(45), nullable=False, unique=True)
+
+    # Datos de la cancelación hecha por el cliente (vacíos si no se ha cancelado)
+    fecha_cancelacion = Column(DateTime, nullable=True)
+    penalidad_cancelacion = Column(DECIMAL(10, 2), nullable=True)
+    reembolso = Column(DECIMAL(10, 2), nullable=True)
+
+    # Cupón aplicado al reservar y recordatorio previo al viaje
+    cupon_id = Column(Integer, ForeignKey("cupones.id_cupon", ondelete="SET NULL"), nullable=True)
+    descuento_cupon = Column(DECIMAL(10, 2), nullable=True)
+    recordatorio_enviado = Column(DateTime, nullable=True)

@@ -1,0 +1,91 @@
+/* Íconos de acción sin marco: el color dice qué hacen (mismo código que los estados) */
+.action-icon {
+  --icon-color: var(--color-muted);
+  --icon-tint: rgba(255, 255, 255, 0.08);
+
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  padding: 0;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--icon-color);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease;
+}
+
+.action-icon:hover:not(:disabled) {
+  background: var(--icon-tint);
+  transform: translateY(-1px);
+}
+
+.action-icon:focus-visible {
+  outline: 2px solid var(--icon-color);
+  outline-offset: 1px;
+}
+
+.action-icon:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.action-icon-placeholder {
+  visibility: hidden;
+  cursor: default;
+}
+
+.action-icon-neutral {
+  --icon-color: var(--color-ink);
+}
+
+/* Verde como «Activo» / «Aprobado» */
+.action-icon-success {
+  --icon-color: var(--color-success);
+  --icon-tint: var(--color-success-bg);
+}
+
+/* Teal como el acento */
+.action-icon-info {
+  --icon-color: var(--color-accent);
+  --icon-tint: rgba(95, 196, 204, 0.14);
+}
+
+/* Amarillo como «Pendiente» */
+.action-icon-warning {
+  --icon-color: var(--color-warning);
+  --icon-tint: var(--color-warning-bg);
+}
+
+/* Naranja de la marca para la acción principal (pagar) */
+.action-icon-primary {
+  --icon-color: var(--color-primary);
+  --icon-tint: rgba(245, 165, 36, 0.16);
+}
+
+/* Rojo como «Cancelada» / «Rechazado» */
+.action-icon-danger {
+  --icon-color: var(--color-danger);
+  --icon-tint: var(--color-danger-bg);
+}
+
+/* Texto emergente */
+.action-icon[data-tip]:hover::after,
+.action-icon[data-tip]:focus-visible::after {
+  content: attr(data-tip);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 5px 9px;
+  border-radius: 8px;
+  background: var(--color-ink);
+  color: var(--color-bg);
+  font: 600 0.75rem var(--font-body);
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 5;
+}

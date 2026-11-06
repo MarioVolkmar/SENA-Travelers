@@ -51,6 +51,19 @@ class PaymentRepository:
             .first()
         )
 
+    def update_status(self, payment: PaymentModel, estado_pago: str):
+        try:
+            payment.estado_pago = estado_pago
+
+            self.db.commit()
+            self.db.refresh(payment)
+
+            return payment
+
+        except Exception as error:
+            self.db.rollback()
+            raise error
+
     def list_payments(self):
         return self.db.query(PaymentModel).all()
 

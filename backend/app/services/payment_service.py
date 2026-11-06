@@ -3,6 +3,7 @@ from uuid import uuid4
 
 from sqlalchemy.orm import Session
 
+from app.services.app_notification_service import AppNotificationService
 from app.models.payment_model import PaymentModel
 from app.models.reservation_model import ReservationModel
 from app.models.user_model import UserModel
@@ -11,6 +12,7 @@ from app.repositories.payment_repository import PaymentRepository
 from app.repositories.reservation_repository import ReservationRepository
 from app.repositories.client_repository import ClientRepository
 from app.services.notification_email_service import NotificationEmailService
+from app.services.provider_payment_order_service import ProviderPaymentOrderService
 
 from app.schemas.payment_schema import PaymentCreate
 
@@ -24,6 +26,7 @@ from app.core.constants import (
 
 class PaymentService:
     def __init__(self, db: Session):
+        self.db = db
         self.payment_repository = PaymentRepository(db)
         self.reservation_repository = ReservationRepository(db)
         self.client_repository = ClientRepository(db)
@@ -124,10 +127,21 @@ class PaymentService:
             RESERVATION_STATUS_CONFIRMED
         )
 
+        # Con la reserva pagada, la agencia le debe a cada proveedor del paquete
+        ProviderPaymentOrderService(self.db).generate_for_reservation(updated_reservation)
+
         self.notification_email_service.create_payment_confirmation_email(
             user=current_user,
             reservation=updated_reservation,
             payment=created_payment
+        )
+
+        AppNotificationService(self.db).notify(
+            current_user.id_usuario,
+            "pago_aprobado",
+            f"Pago aprobado · {updated_reservation.codigo_reserva}",
+            "Tu reserva quedó confirmada. Ya puedes descargar tu voucher.",
+            "/reservations",
         )
 
         return created_payment

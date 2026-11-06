@@ -25,4 +25,4 @@ class CityRepository:
         )
 
     def list_cities(self):
-        return self.db.query(CityModel).all()
+        return self.db.query(CityModel).order_by(CityModel.nombre.asc()).all()

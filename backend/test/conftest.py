@@ -1,4 +1,5 @@
 import os
+from datetime import date
 from dotenv import load_dotenv
 
 import pytest
@@ -24,9 +25,18 @@ from app.models.tourist_package_model import TouristPackageModel
 from app.models.tourist_package_product_model import TouristPackageProductModel
 from app.models.companion_model import CompanionModel
 from app.models.payment_model import PaymentModel
+from app.models.tourist_package_image_model import TouristPackageImageModel
+from app.models.provider_payment_order_model import ProviderPaymentOrderModel, ProviderPaymentOrderItemModel
+from app.models.setting_model import SettingModel
+from app.models.audit_log_model import AuditLogModel
+from app.models.app_notification_model import AppNotificationModel
+from app.models.favorite_model import FavoriteModel
+from app.models.review_model import ReviewModel
+from app.models.coupon_model import CouponModel
 
 load_dotenv()
 os.environ["EMAILS_ENABLED"] = "false"
+os.environ["REMINDERS_ENABLED"] = "false"
 
 TEST_DATABASE_URL = URL.create(
     drivername="mysql+pymysql",
@@ -101,3 +111,22 @@ def db_session():
         yield db
     finally:
         db.close()
+
+
+# Fecha "de hoy" fija para las reglas que dependen del calendario (cancelaciones).
+# Los paquetes de prueba viajan del 10 al 12 de septiembre de 2026.
+FROZEN_TODAY = date(2026, 8, 1)
+
+
+@pytest.fixture(autouse=True)
+def frozen_today(monkeypatch):
+    """Fija la fecha actual de la app (app.core.clock); el test puede moverla con frozen_today(fecha)."""
+    from app.core import clock
+
+    state = {"today": FROZEN_TODAY}
+    monkeypatch.setattr(clock, "today", lambda: state["today"])
+
+    def set_today(new_date):
+        state["today"] = new_date
+
+    return set_today

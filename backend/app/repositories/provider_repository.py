@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from sqlalchemy.orm import Session
 
 from app.models.provider_model import ProviderModel
@@ -56,6 +58,25 @@ class ProviderRepository:
             for field, value in provider_data.items():
                 if value is not None:
                     setattr(provider, field, value)
+
+            self.db.commit()
+            self.db.refresh(provider)
+
+            return provider
+
+        except Exception as error:
+            self.db.rollback()
+            raise error
+
+    def resubmit(self, provider: ProviderModel, provider_data: dict, estado: str):
+        """Vuelve a enviar una solicitud rechazada con datos nuevos."""
+        try:
+            for field, value in provider_data.items():
+                setattr(provider, field, value)
+
+            provider.estado_verificacion = estado
+            provider.fecha_solicitud = datetime.now()
+            provider.fecha_verificacion = None
 
             self.db.commit()
             self.db.refresh(provider)

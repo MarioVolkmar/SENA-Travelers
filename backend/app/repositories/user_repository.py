@@ -52,6 +52,7 @@ class UserRepository:
     def update_password(self, user: UserModel, contrasena_hash: str):
         try:
             user.contrasena_hash = contrasena_hash
+            user.tiene_contrasena = True
 
             self.db.commit()
             self.db.refresh(user)
@@ -74,6 +75,39 @@ class UserRepository:
         except Exception as error:
             self.db.rollback()
             raise error
+
+    def update_photo(self, user: UserModel, foto_url):
+        try:
+            user.foto_url = foto_url
+
+            self.db.commit()
+            self.db.refresh(user)
+
+            return user
+
+        except Exception as error:
+            self.db.rollback()
+            raise error
+
+    def link_google_account(self, user: UserModel, google_sub: str):
+        try:
+            user.google_sub = google_sub
+
+            self.db.commit()
+            self.db.refresh(user)
+
+            return user
+
+        except Exception as error:
+            self.db.rollback()
+            raise error
+
+    def find_by_google_sub(self, google_sub: str):
+        return (
+            self.db.query(UserModel)
+            .filter(UserModel.google_sub == google_sub)
+            .first()
+        )
 
     def update_verification_email(self, user: UserModel, verification_email: str):
         try:

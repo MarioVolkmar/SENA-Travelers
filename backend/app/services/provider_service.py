@@ -4,6 +4,7 @@ from datetime import datetime
 
 from sqlalchemy.orm import Session
 
+from app.services.app_notification_service import AppNotificationService
 from app.models.provider_model import ProviderModel
 from app.models.user_model import UserModel
 
@@ -31,6 +32,7 @@ from app.core.constants import (
 
 class ProviderService:
     def __init__(self, db: Session):
+        self.db = db
         self.provider_repository = ProviderRepository(db)
         self.city_repository = CityRepository(db)
         self.user_repository = UserRepository(db)
@@ -94,10 +96,31 @@ class ProviderService:
             )
 
     def create_provider(self, provider_data: ProviderCreate, current_user: UserModel):
+        if current_user.rol_id == ADMIN_ROLE_ID:
+            raise PermissionError("Un administrador no puede solicitar ser proveedor")
+
         self._ensure_user_email_verified(current_user)
+        self._ensure_city_exists(provider_data.ciudad_id)
+
+        # Una solicitud rechazada se puede corregir y volver a enviar
+        existing = self.provider_repository.find_by_user_id(current_user.id_usuario)
+
+        if existing is not None and existing.estado_verificacion == PROVIDER_STATUS_REJECTED:
+            same_rut = self.provider_repository.find_by_rut(provider_data.rut)
+
+            if same_rut is not None and same_rut.id_proveedor != existing.id_proveedor:
+                raise ValueError("El RUT ya está registrado")
+
+            resubmitted = self.provider_repository.resubmit(
+                existing,
+                provider_data.model_dump(),
+                PROVIDER_STATUS_PENDING
+            )
+            self._notify_new_request(resubmitted)
+            return resubmitted
+
         self._ensure_user_has_no_provider_profile(current_user.id_usuario)
         self._ensure_rut_available(provider_data.rut)
-        self._ensure_city_exists(provider_data.ciudad_id)
 
         provider = ProviderModel(
             usuario_id=current_user.id_usuario,
@@ -109,7 +132,17 @@ class ProviderService:
             estado_verificacion=PROVIDER_STATUS_PENDING
         )
 
-        return self.provider_repository.create_provider(provider)
+        created = self.provider_repository.create_provider(provider)
+        self._notify_new_request(created)
+        return created
+
+    def _notify_new_request(self, provider):
+        AppNotificationService(self.db).notify_admins(
+            "solicitud_proveedor",
+            "Nueva solicitud de proveedor",
+            f"{provider.nombre_empresa} quiere vender sus servicios en Travelers.",
+            "/admin?seccion=proveedores",
+        )
 
     def get_provider_by_id(self, id_proveedor: int, current_user: UserModel):
         self._ensure_admin(current_user)
@@ -172,7 +205,20 @@ class ProviderService:
         if verification_data.estado_verificacion == PROVIDER_STATUS_REJECTED:
             self.user_repository.update_user_role(user, CLIENT_ROLE_ID)
 
-        return self.provider_repository.update_verification_status(
+        updated = self.provider_repository.update_verification_status(
             provider,
             verification_data.estado_verificacion
         )
+
+        approved = verification_data.estado_verificacion == PROVIDER_STATUS_APPROVED
+        AppNotificationService(self.db).notify(
+            user.id_usuario,
+            "proveedor_verificado",
+            "¡Tu empresa fue aprobada!" if approved else "Tu solicitud de proveedor fue rechazada",
+            "Ya puedes crear tus productos desde Mi panel."
+            if approved
+            else "Revisa los datos de tu empresa y vuelve a enviar la solicitud.",
+            "/proveedor" if approved else "/profile?seccion=proveedor",
+        )
+
+        return updated

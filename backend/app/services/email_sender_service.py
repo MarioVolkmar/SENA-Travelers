@@ -38,9 +38,10 @@ class EmailSenderService:
         to_email: str,
         subject: str,
         message: str
-    ):
+    ) -> bool:
+        """Envía el correo por SMTP. Devuelve False si el envío está desactivado."""
         if not self.emails_enabled:
-            return
+            return False
 
         self._ensure_email_config_is_valid()
 
@@ -55,6 +56,8 @@ class EmailSenderService:
                 smtp.starttls()
                 smtp.login(self.smtp_user, self.smtp_password)
                 smtp.send_message(email)
+
+            return True
 
         except Exception as error:
             raise RuntimeError(f"No se pudo enviar el correo: {error}")

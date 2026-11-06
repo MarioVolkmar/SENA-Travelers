@@ -23,6 +23,7 @@ function CitiesSection() {
   const [packages, setPackages] = useState([]);
   const [form, setForm] = useState(EMPTY_FORM);
   const [editing, setEditing] = useState(null);
+  const [manualCoords, setManualCoords] = useState(false);
   const { busy, message, error, run } = useAdminAction();
 
   const load = useCallback(async () => {
@@ -39,7 +40,26 @@ function CitiesSection() {
 
   const cancelEdit = () => {
     setEditing(null);
+    setManualCoords(false);
     setForm(EMPTY_FORM);
+  };
+
+  const locate = async () => {
+    const { ok, result } = await run(
+      () => api.patch(`/cities/${editing.id_ciudad}`, {
+        nombre: form.nombre.trim(),
+        departamento: form.departamento.trim(),
+        recalcular_ubicacion: true,
+      }),
+      null,
+      'No se encontró la ubicación.'
+    );
+    if (ok) {
+      setForm(toForm(result.data));
+      setEditing(result.data);
+      await load();
+      await run(async () => {}, `Ubicación de ${result.data.nombre}: ${Number(result.data.latitud).toFixed(4)}, ${Number(result.data.longitud).toFixed(4)}.`);
+    }
   };
 
   const handleSubmit = async (event) => {
@@ -49,18 +69,32 @@ function CitiesSection() {
       longitud: form.longitud === '' ? null : Number(form.longitud),
     };
     const name = form.nombre.trim();
+    // Al crear sin coordenadas manuales, el servidor busca la ubicación solo
+    const sendCoords = editing || manualCoords;
 
-    const { ok } = await run(
+    const { ok, result } = await run(
       () => (editing
         ? api.patch(`/cities/${editing.id_ciudad}`, { nombre: name, departamento: form.departamento.trim(), ...coords })
-        : api.post('/cities/', { nombre: name, departamento: form.departamento.trim(), pais: form.pais.trim(), ...coords })),
-      editing ? `${name} actualizada.` : `${name} agregada. Ya puedes usarla en paquetes y productos.`,
+        : api.post('/cities/', {
+          nombre: name,
+          departamento: form.departamento.trim(),
+          pais: form.pais.trim(),
+          ...(sendCoords ? coords : {}),
+        })),
+      null,
       'No fue posible guardar la ciudad.'
     );
 
     if (ok) {
+      const saved = result.data;
+      const located = saved.latitud !== null && saved.longitud !== null;
       cancelEdit();
       await load();
+      await run(async () => {}, editing
+        ? `${name} actualizada.`
+        : located
+          ? `${name} agregada y ubicada en el mapa (${Number(saved.latitud).toFixed(4)}, ${Number(saved.longitud).toFixed(4)}).`
+          : `${name} agregada, pero no se encontró su ubicación: edítala para ponerla a mano.`);
     }
   };
 
@@ -100,25 +134,46 @@ function CitiesSection() {
               <input id="city-country" value={form.pais} onChange={update('pais')} minLength={2} maxLength={45} required />
             </div>
           )}
-          <div className="admin-coords">
-            <div className="field">
-              <label htmlFor="city-lat">Latitud</label>
-              <input id="city-lat" type="number" step="0.000001" min="-90" max="90" value={form.latitud} onChange={update('latitud')} placeholder="6.244203" />
-            </div>
-            <div className="field">
-              <label htmlFor="city-lng">Longitud</label>
-              <input id="city-lng" type="number" step="0.000001" min="-180" max="180" value={form.longitud} onChange={update('longitud')} placeholder="-75.581212" />
-            </div>
-          </div>
-          <p className="field-hint">
-            En Google Maps: clic derecho sobre la ciudad y copia los dos números (latitud, longitud).
-          </p>
+          {!editing && !manualCoords ? (
+            <p className="admin-auto-location">
+              <Icon name="pin" size={16} />
+              <span>
+                La ubicación en el mapa se busca sola con el nombre y el departamento.{' '}
+                <button type="button" className="link-button" onClick={() => setManualCoords(true)}>
+                  Escribir coordenadas a mano
+                </button>
+              </span>
+            </p>
+          ) : (
+            <>
+              <div className="admin-coords">
+                <div className="field">
+                  <label htmlFor="city-lat">Latitud</label>
+                  <input id="city-lat" type="number" step="0.000001" min="-90" max="90" value={form.latitud} onChange={update('latitud')} placeholder="6.244203" />
+                </div>
+                <div className="field">
+                  <label htmlFor="city-lng">Longitud</label>
+                  <input id="city-lng" type="number" step="0.000001" min="-180" max="180" value={form.longitud} onChange={update('longitud')} placeholder="-75.581212" />
+                </div>
+              </div>
+              <p className="field-hint">
+                {editing
+                  ? 'Usa «Buscar ubicación» para calcularla de nuevo, o escríbela a mano (en Google Maps: clic derecho sobre la ciudad).'
+                  : 'Déjalas vacías para que se busquen solas.'}
+              </p>
+              {editing && (
+                <button type="button" className="btn btn-secondary btn-small admin-locate" onClick={locate} disabled={busy}>
+                  <Icon name="pin" size={16} /> Buscar ubicación
+                </button>
+              )}
+            </>
+          )}
           <div className="admin-form-actions">
             {editing && (
               <button type="button" className="btn btn-secondary" onClick={cancelEdit} disabled={busy}>Cancelar</button>
             )}
             <button type="submit" className="btn btn-primary" disabled={busy}>
-              {busy ? 'Guardando...' : editing ? 'Guardar cambios' : 'Agregar ciudad'}
+              {busy ? (editing ? 'Guardando...' : 'Agregando y ubicando...') : editing ? 'Guardar cambios' : 'Agregar ciudad'}
             </button>
           </div>
         </form>

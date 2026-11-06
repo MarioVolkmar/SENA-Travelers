@@ -44,6 +44,8 @@ function AdminDashboard() {
   const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const [pending, setPending] = useState({ reservas: 0, proveedores: 0, ordenes: 0 });
+  const [menuOpen, setMenuOpen] = useState(false);
+  const totalPending = pending.reservas + pending.proveedores + pending.ordenes;
 
   const requested = searchParams.get('seccion');
   const active = SECTIONS.find((section) => section.key === requested) || SECTIONS[0];
@@ -73,12 +75,13 @@ function AdminDashboard() {
   }, [refreshPending]);
 
   const goTo = (key, extra = {}) => {
+    setMenuOpen(false);
     setSearchParams(key === 'resumen' ? extra : { seccion: key, ...extra });
   };
 
   return (
     <div className="admin-layout">
-      <aside className="admin-sidebar">
+      <aside className={`admin-sidebar ${menuOpen ? 'is-open' : ''}`}>
         <div className="admin-identity">
           <Avatar user={user} size={44} />
           <div>
@@ -87,8 +90,24 @@ function AdminDashboard() {
           </div>
         </div>
 
+        <button
+          type="button"
+          className="admin-menu-toggle"
+          aria-expanded={menuOpen}
+          aria-controls="console-menu"
+          onClick={() => setMenuOpen((value) => !value)}
+        >
+          <Icon name={active.icon} size={20} />
+          <span className="admin-menu-toggle-label">
+            <small>Consola</small>
+            {active.label}
+          </span>
+          {totalPending > 0 && !menuOpen && <span className="admin-menu-badge">{totalPending}</span>}
+          <Icon name={menuOpen ? 'close' : 'menu'} size={20} />
+        </button>
+
         <p className="admin-sidebar-title">Consola</p>
-        <nav className="admin-menu" aria-label="Secciones de la consola">
+        <nav id="console-menu" className="admin-menu" aria-label="Secciones de la consola">
           {SECTIONS.map((section) => {
             const count = section.badge ? pending[section.badge] : 0;
 

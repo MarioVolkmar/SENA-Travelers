@@ -2,7 +2,9 @@ from datetime import date
 from decimal import Decimal
 from typing import List, Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+from app.core.constants import PACKAGE_INCLUDE_TYPES
 
 
 class TouristPackageProductCreate(BaseModel):
@@ -15,6 +17,35 @@ class TouristPackageProductResponse(BaseModel):
     cantidad: int
 
 
+class PackageIncludes(BaseModel):
+    """Qué incluye el paquete: tipos del catálogo y elementos escritos a mano."""
+    tipos: List[str] = Field(default_factory=list, max_length=len(PACKAGE_INCLUDE_TYPES))
+    otros: List[str] = Field(default_factory=list, max_length=10)
+
+    @field_validator("tipos")
+    @classmethod
+    def valid_types(cls, value):
+        unknown = [item for item in value if item not in PACKAGE_INCLUDE_TYPES]
+        if unknown:
+            raise ValueError(f"Inclusión no válida: {', '.join(unknown)}")
+        # Sin repetidos y en el orden del catálogo
+        return [item for item in PACKAGE_INCLUDE_TYPES if item in value]
+
+    @field_validator("otros")
+    @classmethod
+    def clean_extras(cls, value):
+        cleaned = []
+        for item in value:
+            text = " ".join(str(item).split())
+            if not text:
+                continue
+            if len(text) > 80:
+                raise ValueError("Cada elemento adicional puede tener máximo 80 caracteres")
+            if text.lower() not in [existing.lower() for existing in cleaned]:
+                cleaned.append(text)
+        return cleaned
+
+
 class TouristPackageBase(BaseModel):
     nombre: str = Field(..., min_length=2, max_length=100)
     descripcion: str = Field(..., min_length=10)
@@ -24,6 +55,7 @@ class TouristPackageBase(BaseModel):
     fecha_fin: date
     cupo_max: int = Field(..., gt=0)
     ciudad_id: int = Field(..., gt=0)
+    incluye: Optional[PackageIncludes] = None
 
 
 class TouristPackageCreate(TouristPackageBase):
@@ -39,6 +71,7 @@ class TouristPackageUpdate(BaseModel):
     fecha_fin: Optional[date] = None
     cupo_max: Optional[int] = Field(None, gt=0)
     ciudad_id: Optional[int] = Field(None, gt=0)
+    incluye: Optional[PackageIncludes] = None
     # Si se envía, reemplaza la lista completa de productos del paquete
     productos: Optional[List[TouristPackageProductCreate]] = Field(None, min_length=1)
 

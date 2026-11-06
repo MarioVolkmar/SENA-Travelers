@@ -5,7 +5,9 @@ import { Paged } from '../../../components/Pagination/Pagination';
 import useConfirm from '../../../components/ConfirmDialog/useConfirm';
 import Toast from '../../../components/Toast/Toast';
 import Icon from '../../../components/Icon/Icon';
-import { formatCurrency, formatDate } from '../../../utils/format';
+import IconButton from '../../../components/IconButton/IconButton';
+import { downloadFile, openFile } from '../../../utils/download';
+import { formatCurrency, formatDate, getErrorMessage } from '../../../utils/format';
 import { matches, RESERVATION_STATUSES, useAdminAction } from '../adminShared';
 
 import Select from '../../../components/Select/Select';
@@ -18,6 +20,25 @@ function ReservationsSection({ onDataChanged }) {
   const [filter, setFilter] = useState('');
   const { busy, message, error, run } = useAdminAction();
   const { confirm, dialog } = useConfirm();
+  const [voucherError, setVoucherError] = useState('');
+
+  const viewVoucher = async (reservation) => {
+    setVoucherError('');
+    try {
+      await openFile(`/vouchers/${reservation.id_reserva}`);
+    } catch (requestError) {
+      setVoucherError(getErrorMessage(requestError, requestError.message || 'No fue posible abrir el voucher.'));
+    }
+  };
+
+  const downloadVoucher = async (reservation) => {
+    setVoucherError('');
+    try {
+      await downloadFile(`/vouchers/${reservation.id_reserva}`, `voucher-${reservation.codigo_reserva}.pdf`);
+    } catch (requestError) {
+      setVoucherError(getErrorMessage(requestError, requestError.message || 'No fue posible descargar el voucher.'));
+    }
+  };
 
   const load = useCallback(async () => {
     const [reservationsResponse, packagesResponse] = await Promise.all([
@@ -74,6 +95,7 @@ function ReservationsSection({ onDataChanged }) {
 
       <Toast text={message} />
       <Toast text={error} tone="error" />
+      <Toast text={voucherError} tone="error" />
 
       <div className="surface">
         <div className="admin-toolbar">
@@ -114,6 +136,7 @@ function ReservationsSection({ onDataChanged }) {
                 <th>Total</th>
                 <th>Cancelación</th>
                 <th>Estado</th>
+                <th>Voucher</th>
               </tr>
             </thead>
             <tbody>
@@ -147,6 +170,23 @@ function ReservationsSection({ onDataChanged }) {
                       ))}
                     </Select>
                     )}
+                  </td>
+                  <td>
+                    <div className="admin-actions">
+                      <IconButton
+                        icon="eye"
+                        label="Ver voucher (PDF)"
+                        variant="info"
+                        hidden={reservation.estado !== 'confirmada'}
+                        onClick={() => viewVoucher(reservation)}
+                      />
+                      <IconButton
+                        icon="download"
+                        label="Descargar voucher"
+                        hidden={reservation.estado !== 'confirmada'}
+                        onClick={() => downloadVoucher(reservation)}
+                      />
+                    </div>
                   </td>
                 </tr>
               ))}

@@ -37,3 +37,32 @@ export async function downloadFile(path, fallbackName, params) {
   link.remove();
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
+
+/**
+ * Abre un archivo del backend (por ejemplo un PDF) en una pestaña nueva para verlo.
+ * La pestaña se abre antes de pedir el archivo para que el navegador no la bloquee.
+ */
+export async function openFile(path, params) {
+  const tab = window.open('', '_blank');
+  if (tab) {
+    tab.document.title = 'Cargando...';
+    tab.document.body.style.cssText = 'margin:0;display:grid;place-items:center;height:100vh;background:#0b1520;color:#c9d1db;font-family:system-ui,sans-serif';
+    tab.document.body.textContent = 'Generando el PDF...';
+  }
+
+  let response;
+  try {
+    response = await api.get(path, { params, responseType: 'blob' });
+  } catch (error) {
+    tab?.close();
+    throw await readBlobError(error);
+  }
+
+  const url = URL.createObjectURL(response.data);
+  if (tab) {
+    tab.location.href = url;
+  } else {
+    window.location.href = url; // si el navegador bloqueó la pestaña
+  }
+  window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}

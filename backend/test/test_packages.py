@@ -484,3 +484,40 @@ def test_inactive_package_is_not_available_publicly(client, db_session):
     response = client.get(f"/packages/{id_paquete}")
 
     assert response.status_code == 404
+
+
+def test_package_includes_lists_its_products_without_costs(client, db_session):
+    from test_reservations import create_package_ready_for_reservation
+
+    package, _ = create_package_ready_for_reservation(client, db_session)
+
+    response = client.get(f"/packages/{package['id_paquete_turistico']}/includes")
+
+    assert response.status_code == 200, response.json()
+    items = response.json()
+    assert [item["nombre"] for item in items] == ["Producto Reserva"]
+    assert "costo" not in items[0] and "proveedor_id" not in items[0]
+    assert client.get("/packages/999999/includes").status_code == 404
+
+
+
+def test_package_includes_field_on_create_and_update(client, db_session):
+    from test_reservations import create_package_ready_for_reservation
+
+    package, admin_token = create_package_ready_for_reservation(client, db_session)
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    url = f"/packages/{package['id_paquete_turistico']}"
+
+    response = client.patch(
+        url,
+        json={"incluye": {"tipos": ["transporte", "alojamiento", "transporte"], "otros": ["  Cena de  bienvenida ", "cena de bienvenida", ""]}},
+        headers=headers,
+    )
+    assert response.status_code == 200, response.json()
+    assert response.json()["incluye"] == {"tipos": ["alojamiento", "transporte"], "otros": ["Cena de bienvenida"]}
+
+    # El detalle público también lo devuelve
+    assert client.get(url).json()["incluye"]["tipos"] == ["alojamiento", "transporte"]
+
+    invalid = client.patch(url, json={"incluye": {"tipos": ["spa"]}}, headers=headers)
+    assert invalid.status_code == 422

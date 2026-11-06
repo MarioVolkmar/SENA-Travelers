@@ -95,7 +95,8 @@ class TouristPackageService:
             fecha_inicio=package_data.fecha_inicio,
             fecha_fin=package_data.fecha_fin,
             cupo_max=package_data.cupo_max,
-            ciudades_id_ciudad=package_data.ciudad_id
+            ciudades_id_ciudad=package_data.ciudad_id,
+            incluye=package_data.incluye.model_dump() if package_data.incluye else None
         )
 
         created_package = self.tourist_package_repository.create_package(
@@ -203,6 +204,42 @@ class TouristPackageService:
         ]
 
         return tourist_package, productos
+
+    def get_package_includes(self, id_paquete_turistico: int):
+        """
+        Lo que incluye el paquete según sus productos (público): nombre, tipo y cantidad.
+        No expone costos ni proveedores. Solo productos activos.
+        """
+        from app.models.product_model import ProductModel
+        from app.models.city_model import CityModel
+
+        self._get_package_or_raise(id_paquete_turistico)
+        links = self.tourist_package_repository.list_package_products(id_paquete_turistico)
+        if not links:
+            return []
+
+        db = self.tourist_package_repository.db
+        products = {
+            product.id_producto: product
+            for product in db.query(ProductModel)
+            .filter(ProductModel.id_producto.in_([link.productos_id_producto for link in links]))
+            .all()
+        }
+        cities = {city.id_ciudad: city.nombre for city in db.query(CityModel).all()}
+
+        includes = []
+        for link in links:
+            product = products.get(link.productos_id_producto)
+            if product is None or product.estado != "activo":
+                continue
+            includes.append({
+                "nombre": product.nombre,
+                "tipo_producto": product.tipo_producto,
+                "unidad_cobro": product.unidad_cobro,
+                "cantidad": link.cantidad,
+                "ciudad": cities.get(product.ciudad_id),
+            })
+        return includes
 
     def update_package_status(
         self,

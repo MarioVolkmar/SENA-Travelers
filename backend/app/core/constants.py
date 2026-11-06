@@ -164,3 +164,19 @@ COUPON_STATUS_INACTIVE = "inactivo"
 # Reseñas
 REVIEW_STATUS_VISIBLE = "visible"
 REVIEW_STATUS_HIDDEN = "oculta"
+
+# Qué incluye un paquete (campo «incluye» de paquetes_turisticos)
+PACKAGE_INCLUDE_TYPES = (
+    "alojamiento",
+    "desayuno",
+    "alimentacion",
+    "transporte",
+    "vuelos",
+    "traslados",
+    "tours",
+    "actividades",
+    "entradas",
+    "guia",
+    "seguro",
+    "asistencia",
+)

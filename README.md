@@ -242,6 +242,7 @@ Si creaste la base antes de estos cambios, ejecuta en orden los scripts de migra
 3. `migracion_003_pagos_proveedores.sql`
 4. `migracion_004_estado_envio_correos.sql`
 5. `migracion_005_mejoras.sql` (reseñas, favoritos, cupones, notificaciones, bitácora, recordatorios y coordenadas de las ciudades)
+6. `migracion_006_incluye_paquetes.sql` (qué incluye cada paquete)
 
 ### Fotos de perfil
 
@@ -340,6 +341,8 @@ UPDATE usuarios SET rol_id = 1 WHERE email = 'tu_correo@ejemplo.com';
 - **Notificaciones en la app:** campana en la barra con los avisos de reservas, pagos, cancelaciones, solicitudes y pagos a proveedores.
 - **Reportes:** *Consola → Reportes* con indicadores, ventas por mes, paquetes más vendidos, estados y destinos; se exportan a Excel (con gráficas) y PDF.
 - **Bitácora:** cada cambio exitoso de un administrador queda registrado (quién, qué y cuándo) en *Consola → Bitácora*. Lo registra un middleware (`app/core/audit_middleware.py`).
+- **Qué incluye:** al crear o editar un paquete se marcan las inclusiones (alojamiento, desayunos, transporte, tiquetes, tours, seguro…) y se pueden escribir otras. Si no se marca nada, la página muestra la frase «Incluye …» de la descripción o, si tampoco hay, los productos del paquete.
+- **Ciudades:** al agregar una ciudad, el servidor busca sola su ubicación en OpenStreetMap (Nominatim); se desactiva con `GEOCODING_ENABLED=false`.
 - **Paginación** en las tablas de la consola (10, 25 o 50 por página).
 - **Mapa de destinos** en la portada (Leaflet con mapa base de Esri). Las ciudades necesitan latitud y longitud, que se editan en *Consola → Ciudades*.
 
@@ -357,3 +360,36 @@ UPDATE usuarios SET rol_id = 1 WHERE email = 'tu_correo@ejemplo.com';
 6. Si la reserva se cancela, las órdenes que aún no se pagaron quedan **anuladas**.
 
 Para cargar productos de ejemplo en los 10 paquetes: `venv\Scripts\python -m scripts.seed_productos` (desde `backend`).
+
+---
+
+## Despliegue en AWS EC2
+
+Producción: **https://travelers-sena.duckdns.org** (Ubuntu 24.04, t3.micro, IP elástica 52.72.14.150).
+
+| Pieza | Dónde |
+|---|---|
+| Backend (FastAPI + uvicorn) | `/opt/travelers/backend`, servicio `travelers` (systemd), escucha en `127.0.0.1:8000` |
+| Variables de entorno | `/opt/travelers/backend/.env` (permisos 600; clave JWT y contraseña de MySQL propias del servidor) |
+| Frontend (build de Vite) | `/opt/travelers/frontend`, servido por Nginx |
+| Nginx | `/etc/nginx/sites-available/travelers`: la página en `/` y el API en `/api/` |
+| Base de datos | MySQL 8 local, base `travelers_db`, usuario `travelers` (solo localhost) |
+| HTTPS | Let's Encrypt con Certbot; se renueva solo (`certbot.timer`) |
+| Dominio | DuckDNS (`travelers-sena`) apuntando a la IP elástica |
+
+**Actualizar el backend** (desde `backend/`):
+
+```bash
+tar --exclude=venv --exclude=__pycache__ --exclude=.env --exclude=test -czf - app scripts requirements.txt | ssh -i travelers-backend-key.pem ubuntu@52.72.14.150 "cd /opt/travelers/backend && tar -xzf - && venv/bin/pip install -q -r requirements.txt && sudo systemctl restart travelers"
+```
+
+**Actualizar el frontend** (desde `frontend/travelers/`):
+
+```bash
+VITE_API_URL=https://travelers-sena.duckdns.org/api npx vite build --outDir dist-prod --emptyOutDir
+tar -czf - -C dist-prod . | ssh -i travelers-backend-key.pem ubuntu@52.72.14.150 "rm -rf /opt/travelers/frontend && mkdir -p /opt/travelers/frontend && tar -xzf - -C /opt/travelers/frontend"
+```
+
+**Ver los registros del backend:** `sudo journalctl -u travelers -f`
+
+Si se cambian tablas, aplica la migración también en el servidor (`sudo mysql travelers_db < migracion_00X.sql`). El grupo de seguridad permite SSH solo desde el rango 190.7.115.0/24; si cambia tu proveedor de internet, ajusta esa regla.

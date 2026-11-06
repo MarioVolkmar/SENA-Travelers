@@ -164,7 +164,7 @@ function ProductFormModal({ product, cities, types, providers = [], fixedProvide
 
         <div className="field">
           <label htmlFor="prod-cost">Costo (COP) {unitShortLabel(form.unidad_cobro)}</label>
-          <input id="prod-cost" type="number" min="1" step="1000" value={form.costo} onChange={update('costo')} required />
+          <input id="prod-cost" type="number" min="1" step="1" value={form.costo} onChange={update('costo')} required />
           <span className="field-hint">
             {form.unidad_cobro === 'servicio'
               ? 'Se paga una vez por reserva, sin importar cuántos viajeros.'

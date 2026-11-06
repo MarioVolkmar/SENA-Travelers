@@ -508,17 +508,28 @@ button.admin-stat:hover {
   padding: 8px;
 }
 
+/* Botón del menú: solo se ve en pantallas pequeñas */
+.admin-menu-toggle {
+  display: none;
+}
+
 @media (max-width: 900px) {
   .admin-layout {
-    padding: 16px 16px 56px;
-    gap: 16px;
+    padding: 12px 12px 56px;
+    gap: 14px;
   }
 
   .admin-sidebar {
-    position: static;
+    position: sticky;
+    top: 76px;
+    z-index: 20;
+    flex: 1 1 100%;
+    width: 100%;
     max-width: none;
-    flex-basis: 100%;
-    padding: 10px;
+    min-width: 0; /* sin esto el menú estira la página más allá de la pantalla */
+    padding: 6px;
+    border-radius: var(--radius-md);
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
   }
 
   .admin-identity,
@@ -526,13 +537,82 @@ button.admin-stat:hover {
     display: none;
   }
 
+  .admin-menu-toggle {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    min-height: 52px;
+    padding: 0 12px;
+    border: none;
+    border-radius: 12px;
+    background: transparent;
+    color: #ffffff;
+    font: 700 1rem var(--font-body);
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .admin-menu-toggle > svg:first-child {
+    color: var(--color-accent);
+  }
+
+  .admin-menu-toggle-label {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+    line-height: 1.2;
+  }
+
+  .admin-menu-toggle-label small {
+    color: #8f9bab;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  /* El menú se abre como una cuadrícula debajo del botón */
   .admin-menu {
-    flex-direction: row;
-    overflow-x: auto;
+    display: none;
+  }
+
+  .admin-sidebar.is-open .admin-menu {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 4px;
+    max-height: calc(100vh - 170px);
+    overflow-y: auto;
+    padding: 6px 0 4px;
+    margin-top: 4px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
   }
 
   .admin-menu-item {
-    flex-shrink: 0;
+    min-width: 0;
+    min-height: 48px;
+    gap: 10px;
+    padding: 0 10px;
+    font-size: 0.9rem;
+  }
+
+  .admin-menu-item span:first-of-type {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .admin-main {
+    flex-basis: 100%;
+    width: 100%;
+  }
+}
+
+@media (max-width: 330px) {
+  .admin-sidebar.is-open .admin-menu {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -981,7 +1061,221 @@ button.admin-stat:hover {
 .report-barlist-fill.is-critical { background: var(--color-danger); }
 
 @media (max-width: 700px) {
-  .report-range .ui-select {
-    width: 150px;
+  .report-filters {
+    padding: 12px;
   }
+
+  .report-range {
+    width: 100%;
+  }
+
+  .report-range .ui-select {
+    flex: 1;
+    width: auto;
+    min-width: 0;
+  }
+
+  .report-exports {
+    width: 100%;
+  }
+
+  .report-exports .btn {
+    flex: 1;
+  }
+}
+
+/* Filtros del selector de productos (crear / editar paquete) */
+.admin-picker-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 8px 0 10px;
+}
+
+.admin-picker-filters .admin-search {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+
+.admin-picker-filters .ui-select {
+  flex: 1 1 200px;
+  width: auto;
+  min-width: 0;
+}
+
+.admin-picker-filters .chip {
+  min-height: 40px;
+}
+
+.admin-picker-cost {
+  color: var(--color-muted);
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.admin-picker-empty {
+  margin: 4px 0 10px;
+}
+
+.admin-product-option .admin-product-provider {
+  color: var(--color-accent);
+}
+
+.admin-auto-location {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin: 4px 0 14px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgba(95, 196, 204, 0.1);
+  color: var(--color-muted);
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+.admin-auto-location svg {
+  flex: 0 0 auto;
+  margin-top: 2px;
+  color: var(--color-accent);
+}
+
+.admin-auto-location .link-button {
+  font-size: 0.88rem;
+}
+
+.admin-locate {
+  margin-bottom: 14px;
+}
+
+.admin-locate svg {
+  margin-right: 6px;
+  vertical-align: -3px;
+}
+
+/* Selector de «Qué incluye» (crear / editar paquete) */
+.includes-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 8px;
+}
+
+.includes-option {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+  padding: 8px 34px 8px 10px;
+  border: 1.5px solid var(--color-line);
+  border-radius: 14px;
+  background: var(--color-surface-2);
+  color: var(--color-ink);
+  font: 600 0.88rem var(--font-body);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.12s ease, background 0.12s ease;
+}
+
+.includes-option:hover {
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.includes-option-icon {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--color-muted);
+}
+
+.includes-option-check {
+  position: absolute;
+  top: 50%;
+  right: 10px;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  margin-top: -9px;
+  border-radius: 50%;
+  border: 1.5px solid var(--color-line);
+  color: transparent;
+}
+
+.includes-option.is-active {
+  border-color: var(--color-primary);
+  background: rgba(245, 165, 36, 0.1);
+}
+
+.includes-option.is-active .includes-option-icon {
+  background: rgba(245, 165, 36, 0.18);
+  color: var(--color-primary);
+}
+
+.includes-option.is-active .includes-option-check {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+}
+
+.includes-option:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.includes-extra {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.includes-extra input {
+  flex: 1;
+  min-width: 0;
+}
+
+.includes-extras-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.includes-extras-list li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 4px 4px 10px;
+  border-radius: 999px;
+  background: rgba(95, 196, 204, 0.12);
+  color: var(--color-ink);
+  font-size: 0.85rem;
+}
+
+.includes-extras-list li > svg {
+  color: var(--color-accent);
+}
+
+.includes-extras-list button {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--color-muted);
+  cursor: pointer;
+}
+
+.includes-extras-list button:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--color-danger);
 }

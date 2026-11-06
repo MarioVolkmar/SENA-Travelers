@@ -34,6 +34,7 @@ function ProviderPanel() {
   const [dashboard, setDashboard] = useState(null);
   const [cities, setCities] = useState([]);
   const [loadError, setLoadError] = useState('');
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const active = SECTIONS.find((section) => section.key === searchParams.get('seccion')) || SECTIONS[0];
 
@@ -54,7 +55,10 @@ function ProviderPanel() {
     load();
   }, [load]);
 
-  const goTo = (key) => setSearchParams(key === 'resumen' ? {} : { seccion: key });
+  const goTo = (key) => {
+    setMenuOpen(false);
+    setSearchParams(key === 'resumen' ? {} : { seccion: key });
+  };
   const cityName = (id) => cities.find((city) => city.id_ciudad === id)?.nombre || '';
 
   if (loadError) return <p className="page-status">{loadError}</p>;
@@ -64,7 +68,7 @@ function ProviderPanel() {
 
   return (
     <div className="admin-layout provider-layout">
-      <aside className="admin-sidebar provider-sidebar">
+      <aside className={`admin-sidebar provider-sidebar ${menuOpen ? 'is-open' : ''}`}>
         <div className="admin-identity">
           <Avatar user={user} size={44} />
           <div>
@@ -73,8 +77,23 @@ function ProviderPanel() {
           </div>
         </div>
 
+        <button
+          type="button"
+          className="admin-menu-toggle"
+          aria-expanded={menuOpen}
+          aria-controls="console-menu"
+          onClick={() => setMenuOpen((value) => !value)}
+        >
+          <Icon name={active.icon} size={20} />
+          <span className="admin-menu-toggle-label">
+            <small>Mi panel</small>
+            {active.label}
+          </span>
+          <Icon name={menuOpen ? 'close' : 'menu'} size={20} />
+        </button>
+
         <p className="admin-sidebar-title">Mi panel</p>
-        <nav className="admin-menu" aria-label="Secciones del panel">
+        <nav id="console-menu" className="admin-menu" aria-label="Secciones del panel">
           {SECTIONS.map((section) => (
             <button
               key={section.key}

@@ -1,8 +1,13 @@
 import { useEffect, useState } from 'react';
 
 import api from '../../../api/axiosConfig';
+import Icon from '../../../components/Icon/Icon';
 import Modal from '../../../components/Modal/Modal';
 import { formatCurrency, getErrorMessage } from '../../../utils/format';
+import { productTypeLabel, useProductTypes } from '../../../utils/productTypes';
+import { matches } from '../adminShared';
+import { EMPTY_INCLUDES } from '../../../utils/packageIncludes';
+import IncludesPicker from './IncludesPicker';
 
 import Select from '../../../components/Select/Select';
 import DatePicker from '../../../components/DatePicker/DatePicker';
@@ -25,9 +30,21 @@ function PackageFormModal({ packageId, cities, products, onClose, onSaved }) {
 
   const [form, setForm] = useState(EMPTY_FORM);
   const [selected, setSelected] = useState({}); // { producto_id: cantidad }
+  const [includes, setIncludes] = useState(EMPTY_INCLUDES);
   const [loading, setLoading] = useState(isEdit);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [providers, setProviders] = useState([]);
+  const [providerFilter, setProviderFilter] = useState('');
+  const [productQuery, setProductQuery] = useState('');
+  const [onlySelected, setOnlySelected] = useState(false);
+  const types = useProductTypes();
+
+  useEffect(() => {
+    api.get('/providers/')
+      .then((response) => setProviders(response.data))
+      .catch(() => setProviders([]));
+  }, []);
 
   useEffect(() => {
     if (!isEdit) return;
@@ -45,6 +62,7 @@ function PackageFormModal({ packageId, cities, products, onClose, onSaved }) {
           ciudad_id: String(data.ciudad_id),
         });
         setSelected(Object.fromEntries(data.productos.map((item) => [item.producto_id, item.cantidad])));
+        setIncludes({ tipos: data.incluye?.tipos || [], otros: data.incluye?.otros || [] });
       })
       .catch((requestError) => setError(getErrorMessage(requestError, 'No fue posible cargar el paquete.')))
       .finally(() => setLoading(false));
@@ -69,6 +87,30 @@ function PackageFormModal({ packageId, cities, products, onClose, onSaved }) {
   const availableProducts = products.filter(
     (product) => product.estado === 'activo' || selected[product.id_producto]
   );
+
+  const providerName = (id) => providers.find((provider) => provider.id_proveedor === id)?.nombre_empresa || `Proveedor #${id}`;
+  const cityName = (id) => cities.find((city) => city.id_ciudad === id)?.nombre || '';
+
+  // Proveedores que tienen productos disponibles, con cuántos tiene cada uno
+  const providerOptions = [...new Set(availableProducts.map((product) => product.proveedor_id))]
+    .map((id) => ({
+      id,
+      name: providerName(id),
+      count: availableProducts.filter((product) => product.proveedor_id === id).length,
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  const shownProducts = availableProducts
+    .filter((product) => !providerFilter || product.proveedor_id === Number(providerFilter))
+    .filter((product) => !onlySelected || selected[product.id_producto])
+    .filter((product) => !productQuery.trim()
+      || matches(product.nombre, productQuery)
+      || matches(productTypeLabel(types, product.tipo_producto), productQuery)
+      || matches(cityName(product.ciudad_id), productQuery));
+
+  const selectedCost = availableProducts
+    .filter((product) => selected[product.id_producto])
+    .reduce((sum, product) => sum + Number(product.costo) * selected[product.id_producto], 0);
 
   const finalPrice = Number(form.precio || 0) * (1 - Number(form.descuento || 0) / 100);
 
@@ -101,6 +143,7 @@ function PackageFormModal({ packageId, cities, products, onClose, onSaved }) {
       cupo_max: Number(form.cupo_max),
       ciudad_id: Number(form.ciudad_id),
       productos,
+      incluye: includes,
     };
 
     setSaving(true);
@@ -154,8 +197,13 @@ function PackageFormModal({ packageId, cities, products, onClose, onSaved }) {
               onChange={update('descripcion')}
               minLength={10}
               required
-              placeholder="Escribe «Incluye alojamiento, desayunos y ...» para que se muestre la lista de lo incluido."
+              placeholder="Cuenta de qué se trata el viaje: lugares, experiencias, para quién es..."
             />
+          </div>
+
+          <div className="field field-full">
+            <span className="field-label">Qué incluye</span>
+            <IncludesPicker value={includes} onChange={setIncludes} />
           </div>
 
           <div className="field">
@@ -191,7 +239,7 @@ function PackageFormModal({ packageId, cities, products, onClose, onSaved }) {
 
           <div className="field">
             <label htmlFor="pkg-price">Precio por persona (COP)</label>
-            <input id="pkg-price" type="number" min="1" step="1000" value={form.precio} onChange={update('precio')} required />
+            <input id="pkg-price" type="number" min="1" step="1" value={form.precio} onChange={update('precio')} required />
           </div>
 
           <div className="field">
@@ -203,12 +251,50 @@ function PackageFormModal({ packageId, cities, products, onClose, onSaved }) {
           </div>
 
           <div className="field field-full">
-            <span className="field-label">Productos incluidos ({Object.keys(selected).length})</span>
+            <span className="field-label">
+              Productos incluidos ({Object.keys(selected).length})
+              {selectedCost > 0 && <span className="admin-picker-cost"> · costo {formatCurrency(selectedCost)} por persona</span>}
+            </span>
             {availableProducts.length === 0 ? (
               <p className="admin-muted">No hay productos activos. Créalos primero en la sección Productos.</p>
             ) : (
+              <>
+              <div className="admin-picker-filters">
+                <label className="admin-search">
+                  <Icon name="search" size={16} />
+                  <input
+                    type="search"
+                    value={productQuery}
+                    onChange={(event) => setProductQuery(event.target.value)}
+                    placeholder="Buscar producto, tipo o ciudad"
+                    aria-label="Buscar productos"
+                  />
+                </label>
+                <Select
+                  value={providerFilter}
+                  onChange={(event) => setProviderFilter(event.target.value)}
+                  className="admin-select"
+                  aria-label="Filtrar por proveedor"
+                >
+                  <option value="">Todos los proveedores ({availableProducts.length})</option>
+                  {providerOptions.map((option) => (
+                    <option key={option.id} value={option.id}>{option.name} ({option.count})</option>
+                  ))}
+                </Select>
+                <button
+                  type="button"
+                  className="chip"
+                  aria-pressed={onlySelected}
+                  onClick={() => setOnlySelected((value) => !value)}
+                >
+                  Solo elegidos
+                </button>
+              </div>
+              {shownProducts.length === 0 && (
+                <p className="admin-muted admin-picker-empty">Ningún producto coincide con esos filtros.</p>
+              )}
               <div className="admin-product-picker">
-                {availableProducts.map((product) => {
+                {shownProducts.map((product) => {
                   const checked = Boolean(selected[product.id_producto]);
 
                   return (
@@ -224,8 +310,11 @@ function PackageFormModal({ packageId, cities, products, onClose, onSaved }) {
                       <span>
                         {product.nombre}
                         <small>
-                          {product.tipo_producto} · {formatCurrency(product.costo)}
+                          {productTypeLabel(types, product.tipo_producto)} · {formatCurrency(product.costo)}
                           {product.estado !== 'activo' && ' · inactivo'}
+                        </small>
+                        <small className="admin-product-provider">
+                          {providerName(product.proveedor_id)}{cityName(product.ciudad_id) ? ` · ${cityName(product.ciudad_id)}` : ''}
                         </small>
                       </span>
                       {checked && (
@@ -242,6 +331,7 @@ function PackageFormModal({ packageId, cities, products, onClose, onSaved }) {
                   );
                 })}
               </div>
+              </>
             )}
           </div>
         </form>

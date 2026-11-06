@@ -554,3 +554,6 @@ UPDATE ciudades SET latitud = 5.598600,  longitud = -75.818900 WHERE nombre = 'J
 UPDATE ciudades SET latitud = 6.555800,  longitud = -73.133900 WHERE nombre = 'San Gil';
 UPDATE ciudades SET latitud = -4.215300, longitud = -69.940600 WHERE nombre = 'Leticia';
 UPDATE ciudades SET latitud = 5.633600,  longitud = -73.525300 WHERE nombre = 'Villa de Leyva';
+
+-- Qué incluye cada paquete (equivale a migracion_006_incluye_paquetes.sql)
+ALTER TABLE paquetes_turisticos ADD COLUMN incluye JSON NULL;

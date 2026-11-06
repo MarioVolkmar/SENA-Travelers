@@ -142,7 +142,7 @@ function CouponFormModal({ coupon, onClose, onSaved }) {
             type="number"
             min="1"
             max={form.tipo === 'porcentaje' ? 100 : undefined}
-            step={form.tipo === 'porcentaje' ? 1 : 1000}
+            step={1}
             value={form.valor}
             onChange={update('valor')}
             required
@@ -162,7 +162,7 @@ function CouponFormModal({ coupon, onClose, onSaved }) {
         </div>
         <div className="field">
           <label htmlFor="coupon-min">Compra mínima (COP)</label>
-          <input id="coupon-min" type="number" min="0" step="1000" value={form.monto_minimo} onChange={update('monto_minimo')} placeholder="Sin mínimo" />
+          <input id="coupon-min" type="number" min="0" step="1" value={form.monto_minimo} onChange={update('monto_minimo')} placeholder="Sin mínimo" />
         </div>
       </form>
     </Modal>

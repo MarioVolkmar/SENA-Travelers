@@ -37,6 +37,7 @@ from app.models.coupon_model import CouponModel
 load_dotenv()
 os.environ["EMAILS_ENABLED"] = "false"
 os.environ["REMINDERS_ENABLED"] = "false"
+os.environ["GEOCODING_ENABLED"] = "false"  # los tests no salen a internet
 
 TEST_DATABASE_URL = URL.create(
     drivername="mysql+pymysql",

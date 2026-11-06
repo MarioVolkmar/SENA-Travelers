@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Date, DECIMAL, ForeignKey, Integer, String
+from sqlalchemy import Column, Date, DECIMAL, ForeignKey, Integer, JSON, String
 from sqlalchemy.dialects.mysql import MEDIUMTEXT
 
 from app.database.base import Base
@@ -18,6 +18,8 @@ class TouristPackageModel(Base):
     fecha_fin = Column(Date, nullable=False)
     cupo_max = Column(Integer, nullable=False)
     ciudades_id_ciudad = Column(Integer, ForeignKey("ciudades.id_ciudad"), nullable=False)
+    # Qué incluye: {"tipos": ["alojamiento", "transporte", ...], "otros": ["Cena de bienvenida", ...]}
+    incluye = Column(JSON, nullable=True)
 
     @property
     def ciudad_id(self):

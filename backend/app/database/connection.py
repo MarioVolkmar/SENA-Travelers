@@ -28,7 +28,7 @@ DATABASE_URL = URL.create(
 
 engine = create_engine(
     DATABASE_URL,
-    echo=True,
+    echo=os.getenv("DB_ECHO", "false").lower() == "true",  # DB_ECHO=true muestra cada consulta SQL
     pool_pre_ping=True
 )
 

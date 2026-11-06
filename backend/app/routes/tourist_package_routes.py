@@ -1,4 +1,6 @@
-from typing import List
+from typing import List, Optional
+
+from pydantic import BaseModel
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -145,6 +147,29 @@ def list_active_packages_by_city(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(error)
         )
+
+
+class PackageIncludeItem(BaseModel):
+    nombre: str
+    tipo_producto: str
+    unidad_cobro: Optional[str] = None
+    cantidad: int
+    ciudad: Optional[str] = None
+
+
+@router.get(
+    "/{id_paquete_turistico}/includes",
+    response_model=List[PackageIncludeItem]
+)
+def get_package_includes(
+    id_paquete_turistico: int,
+    db: Session = Depends(get_db)
+):
+    """Productos incluidos en el paquete, sin costos ni proveedores (público)."""
+    try:
+        return TouristPackageService(db).get_package_includes(id_paquete_turistico)
+    except LookupError as error:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error))
 
 
 @router.get(

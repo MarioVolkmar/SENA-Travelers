@@ -7,6 +7,8 @@ import FavoriteButton from '../../components/FavoriteButton/FavoriteButton';
 import Icon from '../../components/Icon/Icon';
 import { Stars } from '../../components/StarRating/StarRating';
 import PackageReviews from './PackageReviews';
+import { productTypeIcon } from '../../utils/productTypes';
+import { includeItems } from '../../utils/packageIncludes';
 import { useAuth } from '../../context/AuthContext';
 import {
   datesBetween,
@@ -88,6 +90,7 @@ function PackageDetail() {
   const [couponError, setCouponError] = useState('');
   const [checkingCoupon, setCheckingCoupon] = useState(false);
   const [rating, setRating] = useState(null);
+  const [includedProducts, setIncludedProducts] = useState([]);
   const handleReviewSummary = useCallback((summary) => setRating(summary.total > 0 ? summary : null), []);
 
   const checkCoupon = useCallback(async (code, people) => {
@@ -126,14 +129,16 @@ function PackageDetail() {
         setTouristPackage(data);
         setFechaReserva(bookableDates(data)[0] || '');
 
-        const [imagesResponse, availabilityResponse, citiesResponse, policyResponse] = await Promise.all([
+        const [imagesResponse, availabilityResponse, citiesResponse, policyResponse, includesResponse] = await Promise.all([
           api.get(`/packages/${id}/images`).catch(() => ({ data: [] })),
           api.get(`/reservations/availability/${id}`).catch(() => ({ data: null })),
           api.get('/cities/').catch(() => ({ data: [] })),
           api.get('/reservations/cancellation-policy').catch(() => ({ data: null })),
+          api.get(`/packages/${id}/includes`).catch(() => ({ data: [] })),
         ]);
 
         setCancellationPolicy(policyResponse.data);
+        setIncludedProducts(includesResponse.data);
 
         setImages(imagesResponse.data.filter((image) => image.imagen_url));
         setAvailability(availabilityResponse.data);
@@ -242,7 +247,19 @@ function PackageDetail() {
   const availableSlots = availability?.cupos_disponibles ?? touristPackage.cupo_max;
   const maxPeople = Math.min(availableSlots, MAX_PEOPLE_PER_RESERVATION);
   const isInactive = touristPackage.estado !== 'activo';
-  const included = includedItems(touristPackage.descripcion);
+  // «Qué incluye»: 1) lo elegido en el formulario del paquete; 2) si no hay, la frase
+  // «Incluye ...» de la descripción; 3) si tampoco, los productos del paquete
+  const chosenItems = includeItems(touristPackage.incluye);
+  const describedItems = includedItems(touristPackage.descripcion);
+  const included = chosenItems.length > 0
+    ? chosenItems
+    : describedItems.length > 0
+    ? describedItems.map((text) => ({ key: text, text, icon: 'check' }))
+    : includedProducts.map((item, index) => ({
+      key: `${item.nombre}-${index}`,
+      text: item.cantidad > 1 ? `${item.nombre} (×${item.cantidad})` : item.nombre,
+      icon: productTypeIcon(item.tipo_producto),
+    }));
   const travelDates = bookableDates(touristPackage);
   const hasEnded = travelDates.length === 0;
   const mosaic = images.length > 0 ? images.slice(0, MOSAIC_SIZE) : [{ id_imagen: 0, imagen_url: fallbackImage }];
@@ -553,9 +570,9 @@ function PackageDetail() {
               <h2>Qué incluye</h2>
               <ul className="detail-included">
                 {included.map((item) => (
-                  <li key={item}>
-                    <span><Icon name="check" size={20} /></span>
-                    {item}
+                  <li key={item.key}>
+                    <span><Icon name={item.icon} size={20} /></span>
+                    {item.text}
                   </li>
                 ))}
               </ul>

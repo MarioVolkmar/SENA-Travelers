@@ -535,6 +535,8 @@
   .account-sidebar {
     position: static;
     max-width: none;
+    min-width: 0; /* el menú desplazable no debe estirar la página */
+    width: 100%;
     flex-basis: 100%;
     padding: 12px;
   }
@@ -546,6 +548,12 @@
   .account-menu {
     flex-direction: row;
     overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .account-menu::-webkit-scrollbar {
+    display: none;
   }
 
   .account-menu-item {

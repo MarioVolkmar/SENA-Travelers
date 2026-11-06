@@ -3,6 +3,8 @@ import { useCallback, useEffect, useState } from 'react';
 import api from '../../../api/axiosConfig';
 import Avatar from '../../../components/Avatar/Avatar';
 import Icon from '../../../components/Icon/Icon';
+import IconButton from '../../../components/IconButton/IconButton';
+import { openFile } from '../../../utils/download';
 import { formatCurrency, formatDate, getErrorMessage } from '../../../utils/format';
 import { ORDER_BADGE, ORDER_STATUS_LABELS } from '../../../utils/paymentOrders';
 import { productTypeLabel, useProductTypes } from '../../../utils/productTypes';
@@ -43,6 +45,16 @@ function UserProfileView({ userId, currentUser, goTo, onBack, onResetPassword, o
   const [cities, setCities] = useState([]);
   const [error, setError] = useState('');
   const [tab, setTab] = useState('resumen');
+  const [voucherError, setVoucherError] = useState('');
+
+  const viewVoucher = async (reservation) => {
+    setVoucherError('');
+    try {
+      await openFile(`/vouchers/${reservation.id_reserva}`);
+    } catch (requestError) {
+      setVoucherError(getErrorMessage(requestError, requestError.message || 'No fue posible abrir el voucher.'));
+    }
+  };
 
   const load = useCallback(async () => {
     try {
@@ -261,6 +273,7 @@ function UserProfileView({ userId, currentUser, goTo, onBack, onResetPassword, o
 
       {tab === 'reservas' && (
         <div className="surface">
+          {voucherError && <div className="alert alert-error">{voucherError}</div>}
           {reservas.length === 0 ? <Empty>No tiene reservas.</Empty> : (
             <div className="table-wrapper">
               <table className="data-table">
@@ -271,6 +284,7 @@ function UserProfileView({ userId, currentUser, goTo, onBack, onResetPassword, o
                     <th>Viajeros</th>
                     <th>Total</th>
                     <th>Estado</th>
+                    <th><span className="visually-hidden">Voucher</span></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -301,6 +315,15 @@ function UserProfileView({ userId, currentUser, goTo, onBack, onResetPassword, o
                         )}
                       </td>
                       <td><span className={`badge badge-${item.estado}`}>{item.estado}</span></td>
+                      <td>
+                        <IconButton
+                          icon="eye"
+                          label="Ver voucher (PDF)"
+                          variant="info"
+                          hidden={item.estado !== 'confirmada'}
+                          onClick={() => viewVoucher(item)}
+                        />
+                      </td>
                     </tr>
                   ))}
                 </tbody>

@@ -303,3 +303,17 @@ def test_reports_summary_and_exports(client, db_session):
 
     assert client.get("/reports/summary", headers=auth(client_token)).status_code == 403
     assert client.get("/reports/summary?desde=2026-05-01&hasta=2026-01-01", headers=auth(admin_token)).status_code == 400
+
+
+def test_admin_can_open_any_voucher_but_other_clients_cannot(client, db_session):
+    from test_reservations import create_client_with_token
+
+    package, admin_token, client_token, _ = setup(client, db_session)
+    reservation = book_and_pay(client, client_token, package["id_paquete_turistico"])
+    other_token, _ = create_client_with_token(client, db_session, email="ajeno_voucher@example.com", identificacion="822822822")
+
+    as_admin = client.get(f"/vouchers/{reservation['id_reserva']}", headers=auth(admin_token))
+    assert as_admin.status_code == 200
+    assert as_admin.content.startswith(b"%PDF")
+
+    assert client.get(f"/vouchers/{reservation['id_reserva']}", headers=auth(other_token)).status_code == 403

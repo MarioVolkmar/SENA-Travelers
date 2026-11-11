@@ -1,11 +1,13 @@
-import { useMemo, useState } from 'react';
+import { lazy, Suspense, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
 import bannerImage from '../../assets/images/banner.jpg';
 import HeroSlider from '../../components/HeroSlider/HeroSlider';
 import Icon from '../../components/Icon/Icon';
-import DestinationsMap from '../../components/DestinationsMap/DestinationsMap';
+// El mapa (Leaflet) pesa bastante: se descarga aparte para no retrasar el inicio
+const DestinationsMap = lazy(() => import('../../components/DestinationsMap/DestinationsMap'));
 import PackageCard from '../../components/PackageCard/PackageCard';
+import { PackageGridSkeleton, Skeleton } from '../../components/Skeleton/Skeleton';
 import usePackageCatalog from '../../hooks/usePackageCatalog';
 import { finalPrice, formatCurrency, tripLength } from '../../utils/format';
 
@@ -13,6 +15,7 @@ import './Home.css';
 
 import Select from '../../components/Select/Select';
 import MonthPicker from '../../components/DatePicker/MonthPicker';
+import usePageTitle from '../../hooks/usePageTitle';
 const FEATURES = [
   {
     icon: 'calendar',
@@ -36,6 +39,7 @@ function monthKey(date) {
 }
 
 function Home() {
+  usePageTitle(null);
   const navigate = useNavigate();
   const { packages, loading } = usePackageCatalog();
 
@@ -131,7 +135,7 @@ function Home() {
         </div>
 
         {loading ? (
-          <p className="page-status">Cargando paquetes...</p>
+          <PackageGridSkeleton className="home-grid" count={6} variant="featured" />
         ) : featured.length === 0 ? (
           <div className="empty-state"><p>Pronto tendremos paquetes disponibles.</p></div>
         ) : (
@@ -151,7 +155,9 @@ function Home() {
               <h2>¿A dónde quieres ir?</h2>
             </div>
           </div>
-          <DestinationsMap packages={packages} />
+          <Suspense fallback={<Skeleton height={460} radius={24} />}>
+            <DestinationsMap packages={packages} />
+          </Suspense>
         </section>
       )}
 

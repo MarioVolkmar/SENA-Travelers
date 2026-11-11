@@ -1,8 +1,9 @@
 from typing import List
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
 from sqlalchemy.orm import Session
 
+from app.core import login_limiter
 from app.database.connection import get_db
 from app.schemas.user_schema import UserCreate, UserResponse, UserLogin, TokenResponse, UserEmailUpdate, UserNameUpdate, UserPasswordUpdate, UserRoleUpdate, ForgotPasswordRequest, ResetPasswordRequest, GoogleLoginRequest, GoogleConfigResponse, UserPasswordReset
 from app.services.user_service import UserService
@@ -429,17 +430,34 @@ def login_with_google(
 @router.post("/login", response_model= TokenResponse)
 def login(
     login_data: UserLogin,
-    db: Session = Depends(get_db) 
+    request: Request,
+    db: Session = Depends(get_db)
 ):
-    try: 
+    client_ip = request.client.host if request.client else None
+
+    # Si el correo o la IP acumularon demasiados fallos, ni se revisa la contraseña
+    try:
+        login_limiter.ensure_allowed(login_data.email, client_ip)
+    except login_limiter.TooManyAttemptsError as error:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=str(error),
+            headers={"Retry-After": str(error.retry_after)},
+        )
+
+    try:
         user_service = UserService(db)
-        return user_service.login_user(
+        token = user_service.login_user(
             login_data.email,
             login_data.password
         )
     except PermissionError as error:
+        login_limiter.register_failure(login_data.email, client_ip)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=str(error)
         )
+
+    login_limiter.register_success(login_data.email)
+    return token
     

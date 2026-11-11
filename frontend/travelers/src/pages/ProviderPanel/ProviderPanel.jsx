@@ -19,6 +19,7 @@ import '../Admin/AdminDashboard.css';
 import './ProviderPanel.css';
 
 import Select from '../../components/Select/Select';
+import usePageTitle from '../../hooks/usePageTitle';
 const SECTIONS = [
   { key: 'resumen', label: 'Resumen', icon: 'home' },
   { key: 'productos', label: 'Mis productos', icon: 'grid' },
@@ -27,6 +28,7 @@ const SECTIONS = [
 ];
 
 function ProviderPanel() {
+  usePageTitle('Panel de proveedor');
   const { user } = useAuth();
   const types = useProductTypes();
   const [searchParams, setSearchParams] = useSearchParams();

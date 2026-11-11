@@ -3,6 +3,8 @@ import { useEffect, useMemo, useState } from 'react';
 import Icon from '../Icon/Icon';
 import Select from '../Select/Select';
 import './Pagination.css';
+// Usa clases de la consola (admin-*); se importa aquí porque la consola se carga aparte
+import '../../pages/Admin/AdminDashboard.css';
 
 const SIZES = [10, 25, 50];
 

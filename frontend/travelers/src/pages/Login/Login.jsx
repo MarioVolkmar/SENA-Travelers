@@ -7,8 +7,10 @@ import { useAuth } from '../../context/AuthContext';
 import GoogleButton from '../../components/GoogleButton/GoogleButton';
 
 import './Login.css';
+import usePageTitle from '../../hooks/usePageTitle';
 
 function Login() {
+  usePageTitle('Iniciar sesión');
   const navigate = useNavigate();
   const location = useLocation();
   const { login } = useAuth();

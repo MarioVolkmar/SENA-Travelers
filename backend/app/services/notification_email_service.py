@@ -5,10 +5,13 @@ from app.models.notification_email_model import NotificationEmailModel
 from app.models.user_model import UserModel
 from app.models.reservation_model import ReservationModel
 from app.models.payment_model import PaymentModel
+from app.models.tourist_package_model import TouristPackageModel
 
 from app.repositories.notification_email_repository import NotificationEmailRepository
 
 from app.services.email_sender_service import EmailSenderService
+from app.services.email_templates import render_email
+from app.services.voucher_service import long_date, money as voucher_money
 
 from app.core.constants import (
     ADMIN_ROLE_ID,
@@ -24,8 +27,35 @@ from app.core.constants import (
 )
 
 
+def money(value) -> str:
+    """"$ 750.000" con espacio que no se parte: el signo nunca queda solo al final de una línea."""
+    return voucher_money(value).replace(" ", " ")
+
+
+def frontend_url():
+    return os.getenv("FRONTEND_URL", "http://localhost:5173").rstrip("/")
+
+
+def people_label(count: int) -> str:
+    return f"{count} {'persona' if count == 1 else 'personas'}"
+
+
+def text_version(greeting: str, paragraphs: list[str], details=None, link=None, note=""):
+    """Versión en texto plano del correo (la que se guarda en la base y ven los clientes sin HTML)."""
+    parts = [greeting, "", *[f"{paragraph}\n" for paragraph in paragraphs]]
+    if details:
+        parts += [f"{label}: {value}" for label, value in details] + [""]
+    if link:
+        parts += [link, ""]
+    if note:
+        parts += [note, ""]
+    parts.append("Equipo Travelers")
+    return "\n".join(parts)
+
+
 class NotificationEmailService:
     def __init__(self, db: Session):
+        self.db = db
         self.notification_email_repository = NotificationEmailRepository(db)
         self.email_sender_service = EmailSenderService()
 
@@ -53,6 +83,14 @@ class NotificationEmailService:
         if not user.email:
             raise ValueError("El usuario no tiene email")
 
+    def _package_name(self, reservation: ReservationModel) -> str:
+        package = (
+            self.db.query(TouristPackageModel)
+            .filter(TouristPackageModel.id_paquete_turistico == reservation.id_paquete_turistico)
+            .first()
+        )
+        return package.nombre if package else "tu paquete"
+
     def _send_and_save_notification(
         self,
         destinatario: str,
@@ -60,13 +98,15 @@ class NotificationEmailService:
         mensaje: str,
         tipo_notificacion: str,
         usuarios_id_usuario: int,
-        reservas_id_reserva: int | None = None
+        reservas_id_reserva: int | None = None,
+        html: str | None = None
     ):
         try:
             sent = self.email_sender_service.send_email(
                 to_email=destinatario,
                 subject=asunto,
-                message=mensaje
+                message=mensaje,
+                html=html
             )
 
             estado_envio = EMAIL_STATUS_SENT if sent else EMAIL_STATUS_DISABLED
@@ -88,6 +128,31 @@ class NotificationEmailService:
             email
         )
 
+    def _build_and_send(self, *, user, asunto, tipo, reserva_id=None, **content):
+        """Arma las dos versiones (HTML y texto) con el mismo contenido y envía el correo."""
+        greeting = content["greeting"]
+        paragraphs = content["paragraphs"]
+        details = content.get("details")
+        button = content.get("button")
+        note = content.get("note", "")
+
+        html = render_email(**content)
+        mensaje = text_version(greeting, paragraphs, details, button[1] if button else None, note)
+
+        return self._send_and_save_notification(
+            destinatario=user.email,
+            asunto=asunto,
+            mensaje=mensaje,
+            tipo_notificacion=tipo,
+            usuarios_id_usuario=user.id_usuario,
+            reservas_id_reserva=reserva_id,
+            html=html,
+        )
+
+    # ---------------------------------------------------------------
+    # Correos
+    # ---------------------------------------------------------------
+
     def create_verification_email(
         self,
         user: UserModel,
@@ -95,23 +160,19 @@ class NotificationEmailService:
     ):
         self._ensure_valid_user_for_notification(user)
 
-        asunto = "Verifica tu cuenta Travelers"
-
-        mensaje = (
-            f"Hola {user.nombre},\n\n"
-            f"Gracias por registrarte en Travelers.\n\n"
-            f"Para verificar tu cuenta, abre el siguiente enlace:\n"
-            f"{verification_link}\n\n"
-            f"Si no creaste esta cuenta, puedes ignorar este mensaje."
-        )
-
-        return self._send_and_save_notification(
-            destinatario=user.email,
-            asunto=asunto,
-            mensaje=mensaje,
-            tipo_notificacion=NOTIFICATION_TYPE_EMAIL_VERIFICATION,
-            usuarios_id_usuario=user.id_usuario,
-            reservas_id_reserva=None
+        return self._build_and_send(
+            user=user,
+            asunto="Verifica tu cuenta Travelers",
+            tipo=NOTIFICATION_TYPE_EMAIL_VERIFICATION,
+            title="Confirma tu correo",
+            preheader="Un clic y tu cuenta queda lista para reservar.",
+            eyebrow="Bienvenido a Travelers",
+            greeting=f"Hola, {user.nombre}:",
+            paragraphs=[
+                "Gracias por registrarte en Travelers. Para activar tu cuenta y empezar a reservar, confirma tu correo con el botón.",
+            ],
+            button=("Verificar mi correo", verification_link),
+            note="El enlace vence en 2 horas. Si no creaste esta cuenta, ignora este mensaje.",
         )
 
     def create_reservation_confirmation_email(
@@ -127,26 +188,29 @@ class NotificationEmailService:
         if reservation.id_reserva is None:
             raise ValueError("La reserva no tiene id asignado")
 
-        asunto = "Confirmación de reserva - Travelers"
+        package_name = self._package_name(reservation)
 
-        mensaje = (
-            f"Hola {user.nombre},\n\n"
-            f"Tu reserva fue creada correctamente.\n\n"
-            f"Código de reserva: {reservation.codigo_reserva}\n"
-            f"Estado actual: {reservation.estado}\n"
-            f"Fecha de reserva: {reservation.fecha_reserva}\n"
-            f"Cantidad de personas: {reservation.cantidad_personas}\n"
-            f"Total: {reservation.total_reserva}\n\n"
-            f"Gracias por confiar en Travelers."
-        )
-
-        return self._send_and_save_notification(
-            destinatario=user.email,
-            asunto=asunto,
-            mensaje=mensaje,
-            tipo_notificacion=NOTIFICATION_TYPE_RESERVATION_CONFIRMATION,
-            usuarios_id_usuario=user.id_usuario,
-            reservas_id_reserva=reservation.id_reserva
+        return self._build_and_send(
+            user=user,
+            asunto="Confirmación de reserva - Travelers",
+            tipo=NOTIFICATION_TYPE_RESERVATION_CONFIRMATION,
+            reserva_id=reservation.id_reserva,
+            title="¡Tu reserva está creada!",
+            preheader=f"{package_name} · {long_date(reservation.fecha_reserva)}. Págala para asegurar tu cupo.",
+            eyebrow="Reserva pendiente de pago",
+            greeting=f"Hola, {user.nombre}:",
+            paragraphs=[
+                f"Apartamos tu lugar en «{package_name}». Para confirmar la reserva y asegurar el cupo, realiza el pago desde Mis reservas.",
+            ],
+            details=[
+                ("Código de reserva", reservation.codigo_reserva),
+                ("Paquete", package_name),
+                ("Fecha del viaje", long_date(reservation.fecha_reserva)),
+                ("Viajeros", people_label(reservation.cantidad_personas)),
+                ("Total", money(reservation.total_reserva)),
+            ],
+            button=("Pagar mi reserva", f"{frontend_url()}/reservations"),
+            note="Los cupos no se guardan hasta que la reserva esté pagada.",
         )
 
     def create_payment_confirmation_email(
@@ -169,26 +233,30 @@ class NotificationEmailService:
         if payment.id_pago is None:
             raise ValueError("El pago no tiene id asignado")
 
-        asunto = "Confirmación de pago - Travelers"
+        package_name = self._package_name(reservation)
 
-        mensaje = (
-            f"Hola {user.nombre},\n\n"
-            f"Tu pago fue aprobado correctamente.\n\n"
-            f"Referencia de pago: {payment.referencia_pago}\n"
-            f"Código de reserva: {reservation.codigo_reserva}\n"
-            f"Estado de la reserva: {reservation.estado}\n"
-            f"Método de pago: {payment.metodo_pago}\n"
-            f"Valor pagado: {payment.valor}\n\n"
-            f"Gracias por viajar con Travelers."
-        )
-
-        return self._send_and_save_notification(
-            destinatario=user.email,
-            asunto=asunto,
-            mensaje=mensaje,
-            tipo_notificacion=NOTIFICATION_TYPE_PAYMENT_CONFIRMATION,
-            usuarios_id_usuario=user.id_usuario,
-            reservas_id_reserva=reservation.id_reserva
+        return self._build_and_send(
+            user=user,
+            asunto="Confirmación de pago - Travelers",
+            tipo=NOTIFICATION_TYPE_PAYMENT_CONFIRMATION,
+            reserva_id=reservation.id_reserva,
+            tone="success",
+            title="Pago aprobado: ¡te vas de viaje!",
+            preheader=f"Tu reserva {reservation.codigo_reserva} quedó confirmada. Ya puedes descargar tu voucher.",
+            eyebrow="Reserva confirmada",
+            greeting=f"Hola, {user.nombre}:",
+            paragraphs=[
+                f"Recibimos tu pago y tu reserva de «{package_name}» quedó confirmada. Descarga tu voucher con código QR y preséntalo el día del viaje.",
+            ],
+            details=[
+                ("Código de reserva", reservation.codigo_reserva),
+                ("Fecha del viaje", long_date(reservation.fecha_reserva)),
+                ("Método de pago", payment.metodo_pago),
+                ("Referencia", payment.referencia_pago),
+                ("Valor pagado", money(payment.valor)),
+            ],
+            button=("Descargar mi voucher", f"{frontend_url()}/reservations"),
+            note="Lleva tu documento de identidad y el de tus acompañantes.",
         )
 
     def create_reservation_cancellation_email(
@@ -206,36 +274,105 @@ class NotificationEmailService:
         reembolso = reservation.reembolso or 0
 
         if by_admin:
-            detalle = "La cancelación la realizó Travelers, así que no tiene penalidad.\n" + (
-                f"Se reembolsa el valor completo de {reembolso}.\n"
+            detalle = "La cancelación la realizó Travelers, así que no tiene penalidad. " + (
+                f"Te reembolsaremos el valor completo: {money(reembolso)}."
                 if reembolso > 0
-                else "La reserva no tenía pagos registrados.\n"
+                else "La reserva no tenía pagos registrados."
             )
         elif reembolso > 0 and penalidad > 0:
             detalle = (
-                f"Como cancelaste después del plazo sin penalidad, se aplicó una penalidad de {penalidad}.\n"
-                f"Valor a reembolsar: {reembolso}\n"
+                f"Como cancelaste después del plazo sin costo, se aplicó una penalidad de {money(penalidad)}. "
+                f"Te reembolsaremos {money(reembolso)}."
             )
         elif reembolso > 0:
-            detalle = f"Cancelaste dentro del plazo: se reembolsa el valor completo de {reembolso}.\n"
+            detalle = f"Cancelaste dentro del plazo sin costo: te reembolsaremos el valor completo, {money(reembolso)}."
         else:
-            detalle = "La reserva no tenía pagos registrados, así que no hay cobros ni reembolsos.\n"
+            detalle = "La reserva no tenía pagos registrados, así que no hay cobros ni reembolsos."
 
-        mensaje = (
-            f"Hola {user.nombre},\n\n"
-            f"Tu reserva {reservation.codigo_reserva} fue cancelada.\n\n"
-            f"{detalle}\n"
-            f"Esperamos verte pronto en Travelers."
-        )
+        details = [
+            ("Código de reserva", reservation.codigo_reserva),
+            ("Paquete", self._package_name(reservation)),
+            ("Fecha del viaje", long_date(reservation.fecha_reserva)),
+        ]
+        if penalidad > 0:
+            details.append(("Penalidad", money(penalidad)))
+        if reembolso > 0:
+            details.append(("Reembolso", money(reembolso)))
 
-        return self._send_and_save_notification(
-            destinatario=user.email,
+        return self._build_and_send(
+            user=user,
             asunto="Cancelación de reserva - Travelers",
-            mensaje=mensaje,
-            tipo_notificacion=NOTIFICATION_TYPE_RESERVATION_CANCELLATION,
-            usuarios_id_usuario=user.id_usuario,
-            reservas_id_reserva=reservation.id_reserva
+            tipo=NOTIFICATION_TYPE_RESERVATION_CANCELLATION,
+            reserva_id=reservation.id_reserva,
+            tone="danger",
+            title="Tu reserva fue cancelada",
+            preheader=f"Reserva {reservation.codigo_reserva} cancelada.",
+            greeting=f"Hola, {user.nombre}:",
+            paragraphs=[
+                f"Tu reserva {reservation.codigo_reserva} fue cancelada.",
+                detalle,
+            ],
+            details=details,
+            button=("Ver otros paquetes", f"{frontend_url()}/packages"),
+            note="Esperamos verte pronto en tu próximo viaje.",
         )
+
+    def create_password_reset_email(
+        self,
+        user: UserModel,
+        reset_link: str
+    ):
+        self._ensure_valid_user_for_notification(user)
+
+        return self._build_and_send(
+            user=user,
+            asunto="Recuperación de contraseña - Travelers",
+            tipo=NOTIFICATION_TYPE_PASSWORD_RESET,
+            title="Restablece tu contraseña",
+            preheader="Crea una contraseña nueva para tu cuenta.",
+            greeting=f"Hola, {user.nombre}:",
+            paragraphs=[
+                "Recibimos una solicitud para restablecer la contraseña de tu cuenta. Crea una nueva con el botón.",
+            ],
+            button=("Crear nueva contraseña", reset_link),
+            note="El enlace vence en 30 minutos. Si no lo pediste, ignora este mensaje: tu contraseña no cambiará.",
+        )
+
+    def create_trip_reminder_email(
+        self,
+        user: UserModel,
+        reservation: ReservationModel,
+        package_name: str,
+        days_left: int
+    ):
+        self._ensure_valid_user_for_notification(user)
+
+        cuando = "mañana" if days_left == 1 else f"en {days_left} días"
+
+        return self._build_and_send(
+            user=user,
+            asunto=f"Tu viaje es {cuando} - Travelers",
+            tipo=NOTIFICATION_TYPE_TRIP_REMINDER,
+            reserva_id=reservation.id_reserva,
+            title=f"¡Tu viaje es {cuando}!",
+            preheader=f"{package_name} · {long_date(reservation.fecha_reserva)}. Ten listo tu voucher.",
+            eyebrow="Recordatorio de viaje",
+            greeting=f"Hola, {user.nombre}:",
+            paragraphs=[
+                f"¡Ya casi! Tu viaje «{package_name}» es {cuando}. Descarga tu voucher con código QR para tenerlo a la mano.",
+            ],
+            details=[
+                ("Código de reserva", reservation.codigo_reserva),
+                ("Fecha del viaje", long_date(reservation.fecha_reserva)),
+                ("Viajeros", people_label(reservation.cantidad_personas)),
+            ],
+            button=("Ver mi reserva y voucher", f"{frontend_url()}/reservations"),
+            note="Lleva tu documento de identidad. ¡Buen viaje!",
+        )
+
+    # ---------------------------------------------------------------
+    # Consultas
+    # ---------------------------------------------------------------
 
     def get_notification_by_id(
         self,
@@ -265,65 +402,4 @@ class NotificationEmailService:
 
         return self.notification_email_repository.list_by_reservation_id(
             reserva_id
-        )
-
-    def create_password_reset_email(
-        self,
-        user: UserModel,
-        reset_link: str
-    ):
-        self._ensure_valid_user_for_notification(user)
-
-        asunto = "Recuperación de contraseña - Travelers"
-
-        mensaje = (
-            f"Hola {user.nombre},\n\n"
-            f"Recibimos una solicitud para restablecer tu contraseña.\n\n"
-            f"Para crear una nueva contraseña, abre el siguiente enlace:\n"
-            f"{reset_link}\n\n"
-            f"Este enlace es temporal. Si no solicitaste este cambio, "
-            f"puedes ignorar este mensaje."
-        )
-
-        return self._send_and_save_notification(
-            destinatario=user.email,
-            asunto=asunto,
-            mensaje=mensaje,
-            tipo_notificacion=NOTIFICATION_TYPE_PASSWORD_RESET,
-            usuarios_id_usuario=user.id_usuario,
-            reservas_id_reserva=None
-        )
-    def create_trip_reminder_email(
-        self,
-        user: UserModel,
-        reservation: ReservationModel,
-        package_name: str,
-        days_left: int
-    ):
-        self._ensure_valid_user_for_notification(user)
-
-        frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173").rstrip("/")
-        cuando = "mañana" if days_left == 1 else f"en {days_left} días"
-
-        asunto = f"Tu viaje es {cuando} - Travelers"
-
-        mensaje = (
-            f"Hola {user.nombre},\n\n"
-            f"¡Ya casi! Tu viaje «{package_name}» es {cuando}, "
-            f"el {reservation.fecha_reserva:%d/%m/%Y}.\n\n"
-            f"Código de reserva: {reservation.codigo_reserva}\n"
-            f"Viajeros: {reservation.cantidad_personas}\n\n"
-            f"Descarga tu voucher con código QR desde Mis reservas:\n"
-            f"{frontend_url}/reservations\n\n"
-            f"Lleva tu documento de identidad. ¡Buen viaje!\n"
-            f"Equipo Travelers"
-        )
-
-        return self._send_and_save_notification(
-            destinatario=user.email,
-            asunto=asunto,
-            mensaje=mensaje,
-            tipo_notificacion=NOTIFICATION_TYPE_TRIP_REMINDER,
-            usuarios_id_usuario=user.id_usuario,
-            reservas_id_reserva=reservation.id_reserva
         )

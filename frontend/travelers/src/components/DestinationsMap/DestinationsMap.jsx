@@ -12,6 +12,9 @@ const TILES = 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World
 const LABELS = 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}';
 const ATTRIBUTION = 'Mapa &copy; <a href="https://www.esri.com">Esri</a>, HERE, Garmin, &copy; colaboradores de OpenStreetMap';
 const COLOMBIA_CENTER = [4.6, -74.3];
+// Colombia completa (con San Andrés y Leticia) y un margen para moverse un poco alrededor
+const COLOMBIA_BOUNDS = [[-4.3, -82], [13.5, -66.8]];
+const PAN_LIMITS = [[-12, -92], [20, -58]];
 
 function escapeHtml(text) {
   return String(text).replace(/[&<>"']/g, (char) => ({
@@ -54,6 +57,11 @@ function DestinationsMap({ packages }) {
       zoom: 5,
       minZoom: 4,
       maxZoom: 12,
+      // Zoom en cuartos de nivel: el encuadre se ajusta a Colombia sin alejarse de más
+      zoomSnap: 0.25,
+      zoomDelta: 0.5,
+      maxBounds: PAN_LIMITS,
+      maxBoundsViscosity: 0.8,
       scrollWheelZoom: false, // no secuestra el scroll de la página
       zoomControl: true,
       attributionControl: true,
@@ -105,10 +113,11 @@ function DestinationsMap({ packages }) {
       markersRef.current[city.id_ciudad] = marker;
     });
 
-    if (destinations.length > 1) {
-      const bounds = L.latLngBounds(destinations.map((entry) => [Number(entry.city.latitud), Number(entry.city.longitud)]));
-      map.fitBounds(bounds, { padding: [40, 40], maxZoom: 7 });
-    }
+    // Encuadra los destinos; sin destinos (o con uno solo) muestra Colombia completa
+    const bounds = destinations.length > 1
+      ? L.latLngBounds(destinations.map((entry) => [Number(entry.city.latitud), Number(entry.city.longitud)]))
+      : L.latLngBounds(COLOMBIA_BOUNDS);
+    map.fitBounds(bounds, { padding: [28, 28], maxZoom: 7 });
   }, [destinations]);
 
   // Resalta el pin elegido y lo centra

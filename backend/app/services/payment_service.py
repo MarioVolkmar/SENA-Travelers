@@ -112,11 +112,33 @@ class PaymentService:
             reservation.total_reserva
         )
 
-        payment = PaymentModel(
+        return self.register_approved_payment(
+            reservation=reservation,
+            user=current_user,
             metodo_pago=payment_data.metodo_pago,
             valor=payment_data.valor,
-            estado_pago=PAYMENT_STATUS_APPROVED,
             referencia_pago=self._generate_payment_reference(),
+        )
+
+    def register_approved_payment(
+        self,
+        reservation: ReservationModel,
+        user: UserModel,
+        metodo_pago: str,
+        valor: Decimal,
+        referencia_pago: str,
+    ):
+        """
+        Guarda un pago aprobado y todo lo que viene con él: confirma la reserva,
+        crea las órdenes de pago a los proveedores y avisa al viajero (correo y campana).
+
+        Lo usan el pago simulado y Stripe; quien llama ya validó la reserva y el valor.
+        """
+        payment = PaymentModel(
+            metodo_pago=metodo_pago,
+            valor=valor,
+            estado_pago=PAYMENT_STATUS_APPROVED,
+            referencia_pago=referencia_pago,
             reserva_id=reservation.id_reserva
         )
 
@@ -131,13 +153,13 @@ class PaymentService:
         ProviderPaymentOrderService(self.db).generate_for_reservation(updated_reservation)
 
         self.notification_email_service.create_payment_confirmation_email(
-            user=current_user,
+            user=user,
             reservation=updated_reservation,
             payment=created_payment
         )
 
         AppNotificationService(self.db).notify(
-            current_user.id_usuario,
+            user.id_usuario,
             "pago_aprobado",
             f"Pago aprobado · {updated_reservation.codigo_reserva}",
             "Tu reserva quedó confirmada. Ya puedes descargar tu voucher.",

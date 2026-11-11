@@ -37,9 +37,15 @@ class EmailSenderService:
         self,
         to_email: str,
         subject: str,
-        message: str
+        message: str,
+        html: str | None = None
     ) -> bool:
-        """Envía el correo por SMTP. Devuelve False si el envío está desactivado."""
+        """
+        Envía el correo por SMTP. Devuelve False si el envío está desactivado.
+
+        Con `html` se envía en dos versiones: el cliente de correo muestra la de HTML
+        y usa el texto plano si no puede mostrarla.
+        """
         if not self.emails_enabled:
             return False
 
@@ -50,6 +56,8 @@ class EmailSenderService:
         email["To"] = to_email
         email["Subject"] = subject
         email.set_content(message)
+        if html:
+            email.add_alternative(html, subtype="html")
 
         try:
             with smtplib.SMTP(self.smtp_host, self.smtp_port) as smtp:

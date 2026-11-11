@@ -24,6 +24,7 @@ import './Profile.css';
 import Select from '../../components/Select/Select';
 import DatePicker from '../../components/DatePicker/DatePicker';
 import { todayKey } from '../../components/DatePicker/calendarUtils';
+import usePageTitle from '../../hooks/usePageTitle';
 const ROLE_NAMES = {
   [ROLE_ADMIN]: 'Administrador',
   [ROLE_CLIENT]: 'Cliente',
@@ -49,6 +50,7 @@ function StatusMessage({ status }) {
 }
 
 function Profile() {
+  usePageTitle('Mi perfil');
   const { user, getCurrentUser } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
 

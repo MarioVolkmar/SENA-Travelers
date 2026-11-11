@@ -4,8 +4,10 @@ import { Link } from 'react-router-dom';
 import api from '../../api/axiosConfig';
 
 import './ForgotPassword.css';
+import usePageTitle from '../../hooks/usePageTitle';
 
 function ForgotPassword() {
+  usePageTitle('Recuperar contraseña');
   const [email, setEmail] = useState('');
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');

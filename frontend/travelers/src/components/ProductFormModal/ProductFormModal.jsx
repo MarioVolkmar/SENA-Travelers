@@ -9,6 +9,8 @@ import Modal from '../Modal/Modal';
 import './ProductFormModal.css';
 
 import Select from '../Select/Select';
+// Usa clases de la consola (admin-*); se importa aquí porque la consola se carga aparte
+import '../../pages/Admin/AdminDashboard.css';
 /**
  * Crear o editar un producto.
  * - Consola: recibe `providers` y permite elegir (o cambiar) el proveedor.

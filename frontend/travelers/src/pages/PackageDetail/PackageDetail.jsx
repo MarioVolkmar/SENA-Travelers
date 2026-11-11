@@ -4,9 +4,11 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import api from '../../api/axiosConfig';
 import fallbackImage from '../../assets/images/fondo.png';
 import FavoriteButton from '../../components/FavoriteButton/FavoriteButton';
+import ShareButton from '../../components/ShareButton/ShareButton';
 import Icon from '../../components/Icon/Icon';
 import { Stars } from '../../components/StarRating/StarRating';
 import PackageReviews from './PackageReviews';
+import RelatedPackages from '../../components/RelatedPackages/RelatedPackages';
 import { productTypeIcon } from '../../utils/productTypes';
 import { includeItems } from '../../utils/packageIncludes';
 import { useAuth } from '../../context/AuthContext';
@@ -25,6 +27,8 @@ import './PackageDetail.css';
 
 import DatePicker from '../../components/DatePicker/DatePicker';
 import { todayKey } from '../../components/DatePicker/calendarUtils';
+import usePageTitle from '../../hooks/usePageTitle';
+import { PageSkeleton } from '../../components/Skeleton/Skeleton';
 const MAX_PEOPLE_PER_RESERVATION = 10;
 const MOSAIC_SIZE = 4;
 
@@ -71,6 +75,7 @@ function PackageDetail() {
   const { isAuthenticated, user } = useAuth();
 
   const [touristPackage, setTouristPackage] = useState(null);
+  usePageTitle(touristPackage?.nombre);
   const [images, setImages] = useState([]);
   const [lightbox, setLightbox] = useState(null);
   const [city, setCity] = useState(null);
@@ -230,7 +235,7 @@ function PackageDetail() {
   };
 
   if (loading) {
-    return <p className="page-status">Cargando paquete...</p>;
+    return <PageSkeleton />;
   }
 
   if (error) {
@@ -504,6 +509,10 @@ function PackageDetail() {
         </div>
         <div className="detail-heading-actions">
           <FavoriteButton packageId={touristPackage.id_paquete_turistico} packageName={touristPackage.nombre} variant="inline" />
+          <ShareButton
+            title={`${touristPackage.nombre} · Travelers`}
+            text={`Mira este paquete: ${touristPackage.nombre}, desde ${formatCurrency(unitPrice)} por persona.`}
+          />
           {!isInactive && !hasEnded && (
             <span className="detail-slots">
               {availableSlots === 0 ? 'Agotado' : `${availableSlots} cupos disponibles`}
@@ -604,6 +613,8 @@ function PackageDetail() {
           )}
         </aside>
       </div>
+
+      <RelatedPackages current={touristPackage} />
 
       {lightbox !== null && (
         <div className="lightbox" role="dialog" aria-modal="true" aria-label="Fotos del paquete">

@@ -4,6 +4,8 @@ import { ORDER_BADGE, ORDER_STATUS_LABELS } from '../../utils/paymentOrders';
 import { unitShortLabel } from '../../utils/productTypes';
 
 import './PaymentOrderDetail.css';
+// Usa clases de la consola (admin-*); se importa aquí porque la consola se carga aparte
+import '../../pages/Admin/AdminDashboard.css';
 
 /** Detalle de una orden de pago a proveedor: reserva, líneas y estado del pago. */
 function PaymentOrderDetail({ order, onClose, footer }) {

@@ -4,6 +4,8 @@ import { Link } from 'react-router-dom';
 import api from '../../api/axiosConfig';
 import Avatar from '../../components/Avatar/Avatar';
 import Icon from '../../components/Icon/Icon';
+// Usa clases de la consola (admin-*); se importa aquí porque la consola se carga aparte
+import '../Admin/AdminDashboard.css';
 
 const SHORTCUTS = [
   { section: 'paquetes', extra: '&nuevo=1', icon: 'plus', title: 'Nuevo paquete', text: 'Crea un paquete y súbele fotos' },

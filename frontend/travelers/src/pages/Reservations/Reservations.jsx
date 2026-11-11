@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Link, useLocation, useSearchParams } from 'react-router-dom';
 
 import api from '../../api/axiosConfig';
 import bannerImage from '../../assets/images/banner.jpg';
@@ -12,6 +12,8 @@ import { downloadFile } from '../../utils/download';
 import { formatCurrency, formatDate, getErrorMessage } from '../../utils/format';
 
 import './Reservations.css';
+import usePageTitle from '../../hooks/usePageTitle';
+import { PageSkeleton } from '../../components/Skeleton/Skeleton';
 
 const PAYMENT_METHODS = ['Tarjeta de crédito', 'Tarjeta débito', 'PSE', 'Nequi'];
 
@@ -64,6 +66,7 @@ function formatShortDate(date) {
 }
 
 function Reservations() {
+  usePageTitle('Mis reservas');
   const location = useLocation();
 
   const [reservations, setReservations] = useState([]);
@@ -90,6 +93,16 @@ function Reservations() {
   const [reviewing, setReviewing] = useState(null);
   const [downloading, setDownloading] = useState(null);
   const [notice, setNotice] = useState({ text: '', tone: 'success' });
+  const [stripe, setStripe] = useState({ enabled: false, test_mode: true });
+  const [searchParams, setSearchParams] = useSearchParams();
+  const confirmedSession = useRef(null);
+
+  // ¿Está configurado Stripe en el backend? Si no, se usa el pago simulado
+  useEffect(() => {
+    api.get('/payments/stripe/config')
+      .then((response) => setStripe(response.data))
+      .catch(() => setStripe({ enabled: false, test_mode: true }));
+  }, []);
 
   const loadPendingReviews = useCallback(() => {
     api.get('/reviews/me/pending')
@@ -191,6 +204,49 @@ function Reservations() {
     }
   };
 
+  // Stripe, paso 1: el backend crea la sesión de pago y el navegador va a la página de Stripe
+  const handleStripePay = async () => {
+    setActionLoading(true);
+    setModalError('');
+
+    try {
+      const response = await api.post('/payments/stripe/checkout', { reserva_id: payingReservation.id_reserva });
+      window.location.assign(response.data.checkout_url);
+    } catch (requestError) {
+      setModalError(getErrorMessage(requestError, 'No fue posible abrir la página de pago.'));
+      setActionLoading(false);
+    }
+  };
+
+  // Stripe, paso 2: al volver, Stripe agrega ?stripe_session=<id>; el backend la consulta y confirma la reserva.
+  // Si el viajero se arrepiente en la página de Stripe, vuelve con ?pago=cancelado.
+  const stripeSession = searchParams.get('stripe_session');
+  const paymentCancelled = searchParams.get('pago') === 'cancelado';
+  useEffect(() => {
+    if (paymentCancelled) {
+      setNotice({ text: 'Cancelaste el pago. Tu reserva sigue pendiente; puedes pagarla cuando quieras.', tone: 'error' });
+      setSearchParams({}, { replace: true });
+      return;
+    }
+
+    if (!stripeSession || confirmedSession.current === stripeSession) return;
+    confirmedSession.current = stripeSession; // evita confirmarla dos veces
+
+    api.post('/payments/stripe/confirm', { session_id: stripeSession })
+      .then((response) => {
+        const paid = response.data.status === 'paid';
+        setNotice({ text: `${response.data.codigo_reserva}: ${response.data.message}`, tone: paid ? 'success' : 'error' });
+        if (paid) loadData();
+      })
+      .catch((requestError) => {
+        setNotice({ text: getErrorMessage(requestError, 'No fue posible confirmar el pago.'), tone: 'error' });
+      })
+      .finally(() => {
+        // Se limpia la dirección para que al recargar no se vuelva a consultar
+        setSearchParams({}, { replace: true });
+      });
+  }, [stripeSession, paymentCancelled, loadData, setSearchParams]);
+
   // Paso 1: pedir al backend cuánto costaría cancelar hoy
   const openCancel = async (reservation) => {
     setActionLoading(true);
@@ -234,7 +290,7 @@ function Reservations() {
   };
 
   if (loading) {
-    return <p className="page-status">Cargando reservas...</p>;
+    return <PageSkeleton />;
   }
 
   if (needsProfile) {
@@ -503,6 +559,26 @@ function Reservations() {
 
             {modalError && <div className="alert alert-error">{modalError}</div>}
 
+            {stripe.enabled ? (
+              <>
+                <div className="pay-gateway">
+                  <Icon name="shield" size={22} />
+                  <p>
+                    Pagarás en la página segura de <strong>Stripe</strong> con tu tarjeta.
+                    Al terminar volverás aquí y tu reserva se confirmará sola.
+                  </p>
+                </div>
+                {stripe.test_mode && (
+                  <div className="pay-sandbox">
+                    <strong>Modo de pruebas: no se cobra dinero real.</strong>
+                    <span>Tarjeta aprobada: 4242 4242 4242 4242</span>
+                    <span>Tarjeta rechazada: 4000 0000 0000 0002</span>
+                    <span>Fecha: cualquiera futura (ej. 12/34) · CVC: cualquier número de 3 dígitos</span>
+                  </div>
+                )}
+              </>
+            ) : (
+            <>
             <fieldset className="pay-methods">
               <legend className="field-label">Método de pago</legend>
               {PAYMENT_METHODS.map((method) => (
@@ -521,6 +597,8 @@ function Reservations() {
             </fieldset>
 
             <p className="field-hint">Este es un pago simulado: no se cobra dinero real.</p>
+            </>
+            )}
 
             <div className="modal-actions">
               <button
@@ -531,9 +609,15 @@ function Reservations() {
               >
                 Volver
               </button>
-              <button type="button" className="btn btn-primary" onClick={handlePay} disabled={actionLoading}>
-                {actionLoading ? 'Procesando...' : 'Confirmar pago'}
-              </button>
+              {stripe.enabled ? (
+                <button type="button" className="btn btn-primary" onClick={handleStripePay} disabled={actionLoading}>
+                  {actionLoading ? 'Abriendo la página de pago...' : 'Ir a pagar con Stripe'}
+                </button>
+              ) : (
+                <button type="button" className="btn btn-primary" onClick={handlePay} disabled={actionLoading}>
+                  {actionLoading ? 'Procesando...' : 'Confirmar pago'}
+                </button>
+              )}
             </div>
           </div>
         </div>

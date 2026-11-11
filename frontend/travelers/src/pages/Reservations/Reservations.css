@@ -290,3 +290,47 @@
   margin-right: 6px;
   vertical-align: -3px;
 }
+
+/* ---- Pago con Stripe ---- */
+.pay-gateway {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin: 8px 0 14px;
+  padding: 16px 18px;
+  border-radius: var(--radius-md);
+  background: var(--color-surface-2);
+}
+
+.pay-gateway svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--color-primary);
+}
+
+.pay-gateway p {
+  margin: 0;
+  line-height: 1.55;
+  color: var(--color-muted);
+}
+
+.pay-gateway strong {
+  color: var(--color-ink);
+}
+
+.pay-sandbox {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 8px;
+  padding: 14px 18px;
+  border: 1px dashed rgba(245, 165, 36, 0.55);
+  border-radius: var(--radius-md);
+  font-size: 0.86rem;
+  line-height: 1.5;
+  color: var(--color-muted);
+}
+
+.pay-sandbox strong {
+  color: var(--color-primary);
+}

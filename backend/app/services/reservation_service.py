@@ -331,6 +331,13 @@ class ReservationService:
         quote.pop("payment")
         return quote
 
+    def _refund_in_stripe(self, payment, amount, reservation: ReservationModel):
+        """Reembolsa en Stripe los pagos hechos con Stripe. Los pagos simulados solo se registran."""
+        from app.services.stripe_service import StripeService  # import local: evita importaciones circulares
+
+        if StripeService.is_stripe_payment(payment) and Decimal(amount or 0) > 0:
+            StripeService(self.reservation_repository.db).refund(payment, amount, reservation.codigo_reserva)
+
     def cancel_my_reservation(self, id_reserva: int, current_user: UserModel):
         reservation = self._get_own_reservation_or_raise(id_reserva, current_user)
         quote = self._cancellation_quote(reservation)
@@ -339,6 +346,9 @@ class ReservationService:
             raise ValueError(quote["motivo"])
 
         payment = quote["payment"]
+
+        # Si se pagó con Stripe, primero se devuelve el dinero allá; si falla, no se cancela nada
+        self._refund_in_stripe(payment, quote["reembolso"], reservation)
 
         if payment is not None and quote["monto_pagado"] > 0:
             self.payment_repository.update_status(
@@ -386,6 +396,7 @@ class ReservationService:
 
         if payment is not None and payment.estado_pago == PAYMENT_STATUS_APPROVED:
             paid = Decimal(payment.valor).quantize(Decimal("0.01"))
+            self._refund_in_stripe(payment, paid, reservation)
             self.payment_repository.update_status(payment, PAYMENT_STATUS_REFUNDED)
 
         cancelled = self.reservation_repository.cancel(

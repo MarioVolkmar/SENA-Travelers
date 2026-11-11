@@ -4,8 +4,10 @@ import { Link, useSearchParams } from 'react-router-dom';
 import api from '../../api/axiosConfig';
 
 import './VerifyEmail.css';
+import usePageTitle from '../../hooks/usePageTitle';
 
 function VerifyEmail() {
+  usePageTitle('Verificar correo');
   const [searchParams] = useSearchParams();
 
   const hasVerified = useRef(false);

@@ -22,6 +22,7 @@ import ReportsSection from './sections/ReportsSection';
 import AuditSection from './sections/AuditSection';
 
 import './AdminDashboard.css';
+import usePageTitle from '../../hooks/usePageTitle';
 
 const SECTIONS = [
   { key: 'resumen', label: 'Resumen', icon: 'home', component: SummarySection },
@@ -49,6 +50,7 @@ function AdminDashboard() {
 
   const requested = searchParams.get('seccion');
   const active = SECTIONS.find((section) => section.key === requested) || SECTIONS[0];
+  usePageTitle(`${active.label} · Consola`);
   const ActiveSection = active.component;
 
   // Contadores de pendientes para el menú

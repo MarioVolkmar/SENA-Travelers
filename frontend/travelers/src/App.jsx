@@ -1,23 +1,30 @@
+import { lazy, Suspense } from 'react';
 import { Routes, Route, useLocation } from 'react-router-dom';
 
 import Navbar from './components/Navbar/Navbar';
 import Footer from './components/Footer/Footer';
 import ProtectedRoute from './components/ProtectedRoute/ProtectedRoute';
-
-import Home from './pages/Home/Home';
-import Login from './pages/Login/Login';
-import Register from './pages/Register/Register';
-import Packages from './pages/Packages/Packages';
-import PackageDetail from './pages/PackageDetail/PackageDetail';
-import Reservations from './pages/Reservations/Reservations';
-import Profile from './pages/Profile/Profile';
-import AdminDashboard from './pages/Admin/AdminDashboard';
-import ProviderPanel from './pages/ProviderPanel/ProviderPanel';
+import { PageSkeleton } from './components/Skeleton/Skeleton';
+import WhatsAppButton from './components/WhatsAppButton/WhatsAppButton';
 import { ROLE_PROVIDER } from './utils/format';
-import VerifyEmail from './pages/VerifyEmail/VerifyEmail';
-import ForgotPassword from './pages/ForgotPassword/ForgotPassword';
-import ResetPassword from './pages/ResetPassword/ResetPassword';
-import VerifyVoucher from './pages/VerifyVoucher/VerifyVoucher';
+
+// El inicio va en el archivo principal (es lo primero que se ve).
+// Las demás pantallas se descargan solo cuando se visitan, así la primera carga es más liviana.
+import Home from './pages/Home/Home';
+
+const Login = lazy(() => import('./pages/Login/Login'));
+const Register = lazy(() => import('./pages/Register/Register'));
+const Packages = lazy(() => import('./pages/Packages/Packages'));
+const PackageDetail = lazy(() => import('./pages/PackageDetail/PackageDetail'));
+const Reservations = lazy(() => import('./pages/Reservations/Reservations'));
+const Profile = lazy(() => import('./pages/Profile/Profile'));
+const AdminDashboard = lazy(() => import('./pages/Admin/AdminDashboard'));
+const ProviderPanel = lazy(() => import('./pages/ProviderPanel/ProviderPanel'));
+const VerifyEmail = lazy(() => import('./pages/VerifyEmail/VerifyEmail'));
+const ForgotPassword = lazy(() => import('./pages/ForgotPassword/ForgotPassword'));
+const ResetPassword = lazy(() => import('./pages/ResetPassword/ResetPassword'));
+const VerifyVoucher = lazy(() => import('./pages/VerifyVoucher/VerifyVoucher'));
+const LegalPage = lazy(() => import('./pages/Legal/LegalPage'));
 
 import './App.css';
 
@@ -32,6 +39,7 @@ function App() {
     <div className="app">
       <Navbar />
       <main className="main-content">
+        <Suspense fallback={<PageSkeleton />}>
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/login" element={<Login />} />
@@ -42,6 +50,9 @@ function App() {
           <Route path="/packages" element={<Packages />} />
           <Route path="/packages/:id" element={<PackageDetail />} />
           <Route path="/verificar/:codigo" element={<VerifyVoucher />} />
+          <Route path="/terminos" element={<LegalPage doc="terminos" />} />
+          <Route path="/privacidad" element={<LegalPage doc="privacidad" />} />
+          <Route path="/cancelaciones" element={<LegalPage doc="cancelaciones" />} />
           <Route
             path="/reservations"
             element={<ProtectedRoute><Reservations /></ProtectedRoute>}
@@ -63,8 +74,10 @@ function App() {
             element={<p className="page-status">Página no encontrada.</p>}
           />
         </Routes>
+        </Suspense>
       </main>
       {showFooter && <Footer />}
+      {showFooter && <WhatsAppButton />}
     </div>
   );
 }

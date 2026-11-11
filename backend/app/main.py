@@ -16,6 +16,7 @@ from app.routes.product_routes import router as product_router
 from app.routes.tourist_package_routes import router as tourist_package_router
 from app.routes.tourist_package_image_routes import router as package_image_router
 from app.routes.reservation_routes import router as reservation_router
+from app.routes.stripe_routes import router as stripe_router
 from app.routes.payment_routes import router as payment_router
 from app.routes.city_routes import router as city_router
 from app.routes.provider_payment_routes import router as provider_payment_router
@@ -78,6 +79,7 @@ app.include_router(product_router)
 app.include_router(tourist_package_router)
 app.include_router(package_image_router)
 app.include_router(reservation_router)
+app.include_router(stripe_router)  # antes de payment_router: /payments/{id} capturaría "stripe"
 app.include_router(payment_router)
 app.include_router(city_router)
 app.include_router(provider_payment_router)

@@ -120,6 +120,16 @@ FROZEN_TODAY = date(2026, 8, 1)
 
 
 @pytest.fixture(autouse=True)
+def reset_login_limiter():
+    """Cada prueba empieza sin intentos fallidos de inicio de sesión acumulados."""
+    from app.core import login_limiter
+
+    login_limiter.reset_all()
+    yield
+    login_limiter.reset_all()
+
+
+@pytest.fixture(autouse=True)
 def frozen_today(monkeypatch):
     """Fija la fecha actual de la app (app.core.clock); el test puede moverla con frozen_today(fecha)."""
     from app.core import clock

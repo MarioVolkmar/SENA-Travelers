@@ -6,6 +6,7 @@ import Icon from '../../components/Icon/Icon';
 import { formatLongDate } from '../../utils/format';
 
 import './VerifyVoucher.css';
+import usePageTitle from '../../hooks/usePageTitle';
 
 const STATUS = {
   confirmada: { title: 'Reserva válida', text: 'El voucher corresponde a una reserva pagada y confirmada.', tone: 'ok' },
@@ -15,6 +16,7 @@ const STATUS = {
 
 /** Página pública que abre el código QR del voucher. */
 function VerifyVoucher() {
+  usePageTitle('Verificar voucher');
   const { codigo } = useParams();
   const [data, setData] = useState(null);
   const [error, setError] = useState('');

@@ -4,8 +4,10 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../../api/axiosConfig';
 
 import './ResetPassword.css';
+import usePageTitle from '../../hooks/usePageTitle';
 
 function ResetPassword() {
+  usePageTitle('Nueva contraseña');
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 

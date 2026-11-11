@@ -6,13 +6,15 @@ Proyecto Técnico en Programación de Software 2026
 
 Travelers es una plataforma web para una agencia turística, desarrollada como proyecto académico del programa Técnico en Programación de Software del SENA.
 
-El sistema permite gestionar paquetes turísticos, clientes, proveedores, productos, reservas, pagos simulados y notificaciones por correo electrónico.
+El sistema permite gestionar paquetes turísticos, clientes, proveedores, productos, reservas, pagos con Stripe (modo de prueba) y notificaciones por correo electrónico.
+
+**Producción:** https://travelers-sena.duckdns.org · **Documentación:** `docs/Manual_de_usuario_Travelers.pdf` y `docs/Manual_tecnico_Travelers.pdf`.
 
 ---
 
 ## Objetivo del proyecto
 
-Desarrollar una aplicación web para una agencia turística que permita comercializar paquetes turísticos, administrar la información principal del negocio y facilitar el proceso de reserva y compra simulada por parte de los clientes.
+Desarrollar una aplicación web para una agencia turística que permita comercializar paquetes turísticos, administrar la información principal del negocio y facilitar el proceso de reserva y compra en línea por parte de los clientes.
 
 El proyecto busca integrar una base de datos en MySQL, un backend en Python y una interfaz web en React, aplicando buenas prácticas de organización, control de versiones y programación orientada a objetos.
 
@@ -44,7 +46,7 @@ Funciones relacionadas:
 - Asociación del cliente con un usuario del sistema.
 - Consulta de paquetes turísticos.
 - Creación de reservas.
-- Compra simulada de paquetes.
+- Compra de paquetes con Stripe (modo de prueba) o pago simulado si no hay llaves.
 - Correos reales por SMTP (`EMAILS_ENABLED=true`). Cada correo queda registrado con estado `enviado`, `fallido` o `desactivado` (cuando `EMAILS_ENABLED=false`).
 
 ---
@@ -120,19 +122,17 @@ Funciones relacionadas:
 
 ---
 
-### Gestión de pagos simulados
+### Pagos con Stripe
 
-La primera versión del sistema no procesa dinero real.
+Los pagos se hacen con **Stripe Checkout en modo de prueba**: el flujo es real pero no se mueve dinero y solo se aceptan tarjetas de prueba (`4242 4242 4242 4242`, cualquier fecha futura y CVC).
 
-Los pagos son simulados y se registran en la base de datos para representar el flujo funcional de compra.
+1. `POST /payments/stripe/checkout`: el backend valida la reserva y crea la sesión de pago en Stripe por el valor exacto (COP).
+2. El viajero paga en la página de Stripe y vuelve a `/reservations?stripe_session=…`.
+3. `POST /payments/stripe/confirm`: el backend consulta la sesión y, si está pagada por el valor correcto, confirma la reserva.
+4. `POST /payments/stripe/webhook`: Stripe también avisa con un evento firmado (`checkout.session.completed`), por si el viajero cierra la ventana.
+5. Al **cancelar** una reserva pagada con Stripe, el reembolso (total o con penalidad) se hace automáticamente en Stripe.
 
-Funciones relacionadas:
-
-- Registrar pago simulado.
-- Asociar pago a una reserva.
-- Guardar método de pago.
-- Guardar referencia de pago.
-- Cambiar estado del pago.
+Variables en `backend/.env`: `STRIPE_SECRET_KEY` (sk_test_… o rk_test_…) y `STRIPE_WEBHOOK_SECRET` (whsec_…). **Sin `STRIPE_SECRET_KEY` se usa el pago simulado** (se elige el método y se aprueba al instante), así el proyecto funciona sin cuenta de Stripe.
 
 ---
 
@@ -282,7 +282,7 @@ Permiso IAM mínimo (usuario de desarrollo o rol de la instancia EC2):
 | Desde el día del viaje | No se puede cancelar |
 | Reserva sin pagar | Se cancela sin costo en cualquier momento antes del viaje |
 
-Los días y el porcentaje se cambian en *Consola → Configuración* (valores iniciales en `CANCELLATION_FREE_DAYS` y `CANCELLATION_PENALTY_PERCENT`). Si el administrador cancela la reserva desde la consola no hay penalidad: se reembolsa todo. Los reembolsos son simulados: el pago queda como `reembolsado` o `reembolso_parcial` y la reserva guarda la penalidad y el reembolso.
+Los días y el porcentaje se cambian en *Consola → Configuración* (valores iniciales en `CANCELLATION_FREE_DAYS` y `CANCELLATION_PENALTY_PERCENT`). Si el administrador cancela la reserva desde la consola no hay penalidad: se reembolsa todo. El pago queda como `reembolsado` o `reembolso_parcial` y la reserva guarda la penalidad y el reembolso. Si el pago se hizo con Stripe, el reembolso se envía a Stripe antes de guardar la cancelación; si Stripe lo rechaza, la reserva no se cancela.
 
 ### Crear un administrador
 
@@ -299,7 +299,7 @@ UPDATE usuarios SET rol_id = 1 WHERE email = 'tu_correo@ejemplo.com';
 1. El usuario se registra y verifica su correo.
 2. Inicia sesión y completa su **perfil de cliente** (identificación, fecha de nacimiento y ciudad).
 3. Elige un paquete en **Paquetes turísticos**, ve el detalle y la galería, y reserva indicando fecha, personas y acompañantes.
-4. En **Mis reservas** paga la reserva (pago simulado) o la cancela mientras esté pendiente.
+4. En **Mis reservas** paga la reserva con Stripe (o con el pago simulado si no hay llaves) o la cancela; si estaba pagada, el reembolso vuelve a la tarjeta.
 5. El administrador entra al **Panel administrador** para ver reservas, pagos, paquetes, usuarios y proveedores, y aprobar o rechazar proveedores.
 
 ---
@@ -315,7 +315,8 @@ UPDATE usuarios SET rol_id = 1 WHERE email = 'tu_correo@ejemplo.com';
 | Paquetes | `GET /packages/`, `GET /packages/{id}`, `GET /packages/admin/{id}` (admin, con productos), `POST /packages/` (admin), `PATCH /packages/{id}` (admin, datos y productos), `PATCH /packages/{id}/status` (admin) |
 | Imágenes | `GET /packages/{id}/images`, `GET /packages/{id}/images/cover`, `GET /packages/images/covers`, `POST /packages/{id}/images` (admin), `POST /packages/{id}/images/upload` (admin, sube a S3), `PATCH /packages/{id}/images/{id_imagen}/cover` (admin), `DELETE /packages/{id}/images/{id_imagen}` (admin) |
 | Reservas | `POST /reservations/`, `GET /reservations/me`, `GET /reservations/availability/{id_paquete}`, `GET /reservations/cancellation-policy`, `GET /reservations/{id}/cancellation`, `PATCH /reservations/{id}/cancel`, `GET /reservations/` (admin), `PATCH /reservations/{id}/status` (admin) |
-| Pagos | `POST /payments/`, `GET /payments/me`, `GET /payments/` (admin) |
+| Pagos | `POST /payments/` (pago simulado), `GET /payments/me`, `GET /payments/` (admin) |
+| Stripe | `GET /payments/stripe/config`, `POST /payments/stripe/checkout`, `POST /payments/stripe/confirm`, `POST /payments/stripe/webhook` (lo llama Stripe, firmado) |
 | Ciudades | `GET /cities/` (con latitud y longitud), `POST /cities/`, `PATCH /cities/{id}` (admin) |
 | Pagos a proveedores | `GET /provider-payments/` (admin), `GET /provider-payments/me` (proveedor), `GET /provider-payments/{id}`, `PATCH /provider-payments/{id}/approve`, `/pay`, `/annul` (admin), `POST /provider-payments/generate` (admin) |
 | Configuración | `GET /settings/`, `PATCH /settings/` (admin) |
@@ -344,7 +345,14 @@ UPDATE usuarios SET rol_id = 1 WHERE email = 'tu_correo@ejemplo.com';
 - **Qué incluye:** al crear o editar un paquete se marcan las inclusiones (alojamiento, desayunos, transporte, tiquetes, tours, seguro…) y se pueden escribir otras. Si no se marca nada, la página muestra la frase «Incluye …» de la descripción o, si tampoco hay, los productos del paquete.
 - **Ciudades:** al agregar una ciudad, el servidor busca sola su ubicación en OpenStreetMap (Nominatim); se desactiva con `GEOCODING_ENABLED=false`.
 - **Paginación** en las tablas de la consola (10, 25 o 50 por página).
-- **Mapa de destinos** en la portada (Leaflet con mapa base de Esri). Las ciudades necesitan latitud y longitud, que se editan en *Consola → Ciudades*.
+- **Mapa de destinos** en la portada (Leaflet con mapa base de Esri), encuadrado en Colombia. Las ciudades necesitan latitud y longitud, que se editan en *Consola → Ciudades*.
+- **Buscador del catálogo:** amplía cada palabra con temas relacionados («playa» → mar, Caribe, isla, Tayrona…), ignora tildes y acepta plurales (`frontend/travelers/src/utils/packageSearch.js`). Se combina con los filtros de destino, mes, calificación, **con descuento** y orden; todo queda en la URL.
+- **Paquetes relacionados** («También te puede gustar») al final del detalle, por tipo de viaje, región y precio.
+- **Compartir** un paquete por WhatsApp, Facebook, correo o enlace; vista previa con imagen al compartir (Open Graph) y título propio en cada pestaña.
+- **Correos con diseño:** HTML con la marca, recuadro de datos y botón (`app/services/email_templates.py`), con versión en texto plano.
+- **Límite de intentos de inicio de sesión:** 5 fallos por correo (20 por IP) bloquean 15 minutos (`app/core/login_limiter.py`).
+- **Carga más rápida:** cada pantalla se descarga al visitarla (`React.lazy`) y se muestran siluetas mientras cargan los datos.
+- **Páginas legales y contacto:** `/terminos`, `/privacidad`, `/cancelaciones`, pie de página con contacto y botón de WhatsApp. Los datos de contacto están en `frontend/travelers/src/utils/contact.js`.
 
 ---
 
@@ -370,7 +378,8 @@ Producción: **https://travelers-sena.duckdns.org** (Ubuntu 24.04, t3.micro, IP 
 | Pieza | Dónde |
 |---|---|
 | Backend (FastAPI + uvicorn) | `/opt/travelers/backend`, servicio `travelers` (systemd), escucha en `127.0.0.1:8000` |
-| Variables de entorno | `/opt/travelers/backend/.env` (permisos 600; clave JWT y contraseña de MySQL propias del servidor) |
+| Variables de entorno | `/opt/travelers/backend/.env` (permisos 600; clave JWT, contraseña de MySQL y llaves de Stripe propias del servidor) |
+| Stripe (modo de prueba) | Webhook en `https://travelers-sena.duckdns.org/api/payments/stripe/webhook` con `checkout.session.completed` y `checkout.session.async_payment_succeeded` |
 | Frontend (build de Vite) | `/opt/travelers/frontend`, servido por Nginx |
 | Nginx | `/etc/nginx/sites-available/travelers`: la página en `/` y el API en `/api/` |
 | Base de datos | MySQL 8 local, base `travelers_db`, usuario `travelers` (solo localhost) |

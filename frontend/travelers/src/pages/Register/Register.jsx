@@ -9,6 +9,7 @@ import { getErrorMessage } from '../../utils/format';
 import './Register.css';
 
 import Select from '../../components/Select/Select';
+import usePageTitle from '../../hooks/usePageTitle';
 const EMPTY_ACCOUNT = { nombre: '', email: '', password: '', confirmPassword: '' };
 const EMPTY_COMPANY = { nombre_empresa: '', rut: '', telefono: '', direccion: '', ciudad_id: '' };
 
@@ -28,6 +29,7 @@ const ACCOUNT_TYPES = [
 ];
 
 function Register() {
+  usePageTitle('Crear cuenta');
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
@@ -206,6 +208,10 @@ function Register() {
             <button type="submit" className="register-submit" disabled={loading}>
               {isProvider ? 'Continuar con los datos de la empresa' : loading ? 'Creando cuenta...' : 'Registrarme'}
             </button>
+            <p className="register-legal">
+              Al crear tu cuenta aceptas los <Link to="/terminos" target="_blank">términos y condiciones</Link> y
+              la <Link to="/privacidad" target="_blank">política de privacidad</Link>.
+            </p>
           </>
         )}
 

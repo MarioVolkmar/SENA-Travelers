@@ -148,3 +148,15 @@
     grid-template-columns: 1fr;
   }
 }
+
+.register-legal {
+  margin: 12px 0 0;
+  color: var(--color-muted);
+  font-size: 0.85rem;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.register-legal a {
+  color: var(--color-primary);
+}

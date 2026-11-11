@@ -139,9 +139,11 @@
 
 /* ---------- Secciones ---------- */
 
-/* margin (no padding) para no chocar con el padding horizontal de .container */
-.home-section {
-  margin-top: 88px;
+/* margin (no padding) para no chocar con el padding horizontal de .container.
+   Se usa .container.home-section porque la regla general .container
+   (margin: 0 auto) se carga después y anulaba este espacio. */
+.container.home-section {
+  margin-top: 72px;
 }
 
 .home-section-header {
@@ -276,8 +278,8 @@
     margin: 28px 16px 0;
   }
 
-  .home-section {
-    margin-top: 64px;
+  .container.home-section {
+    margin-top: 56px;
   }
 
   .home-grid {

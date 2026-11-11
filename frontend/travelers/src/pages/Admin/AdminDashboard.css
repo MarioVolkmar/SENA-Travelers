@@ -356,6 +356,14 @@ button.admin-stat:hover {
   grid-column: 1 / -1;
 }
 
+/* En las filas de dos campos, la etiqueta ocupa una sola línea para que
+   las cajas de una misma fila queden siempre a la misma altura */
+.admin-form-grid .field:not(.field-full) > label {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
 .admin-form-grid textarea,
 .field textarea {
   min-height: 110px;

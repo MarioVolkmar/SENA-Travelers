@@ -124,7 +124,7 @@ function CouponFormModal({ coupon, onClose, onSaved }) {
             <option value="inactivo">Inactivo</option>
           </Select>
         </div>
-        <div className="field admin-form-wide">
+        <div className="field field-full">
           <label htmlFor="coupon-desc">Descripción (la ve el viajero)</label>
           <input id="coupon-desc" value={form.descripcion} onChange={update('descripcion')} maxLength={150} placeholder="10 % en paquetes de temporada" />
         </div>

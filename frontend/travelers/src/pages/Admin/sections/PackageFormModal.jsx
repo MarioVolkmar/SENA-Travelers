@@ -217,8 +217,8 @@ function PackageFormModal({ packageId, cities, products, onClose, onSaved }) {
           </div>
 
           <div className="field">
-            <label htmlFor="pkg-slots">Cupo máximo (personas)</label>
-            <input id="pkg-slots" type="number" min="1" value={form.cupo_max} onChange={update('cupo_max')} required />
+            <label htmlFor="pkg-slots">Cupo máximo</label>
+            <input id="pkg-slots" type="number" min="1" placeholder="Número de personas" value={form.cupo_max} onChange={update('cupo_max')} required />
           </div>
 
           <div className="field">
@@ -238,8 +238,8 @@ function PackageFormModal({ packageId, cities, products, onClose, onSaved }) {
           </div>
 
           <div className="field">
-            <label htmlFor="pkg-price">Precio por persona (COP)</label>
-            <input id="pkg-price" type="number" min="1" step="1" value={form.precio} onChange={update('precio')} required />
+            <label htmlFor="pkg-price">Precio por persona</label>
+            <input id="pkg-price" type="number" min="1" step="1" placeholder="En pesos (COP)" value={form.precio} onChange={update('precio')} required />
           </div>
 
           <div className="field">

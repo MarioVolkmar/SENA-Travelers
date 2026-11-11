@@ -55,7 +55,15 @@ function Home() {
   );
 
   const featured = packages.slice(0, 6);
-  const bannerPackage = packages.find((item) => item.city?.nombre === 'San Andrés');
+  // Un paquete al azar en cada visita (se prefieren los que tienen foto de portada).
+  // El número aleatorio se sortea una sola vez al abrir la página.
+  const [bannerSeed] = useState(() => Math.random());
+  const bannerPackage = useMemo(() => {
+    if (packages.length === 0) return null;
+    const withCover = packages.filter((item) => item.cover);
+    const pool = withCover.length > 0 ? withCover : packages;
+    return pool[Math.floor(bannerSeed * pool.length)];
+  }, [packages, bannerSeed]);
 
   const handleSearch = (event) => {
     event.preventDefault();
@@ -164,7 +172,7 @@ function Home() {
       {bannerPackage && (
         <section className="container home-section">
           <div className="home-banner">
-            <img src={bannerImage} alt="" className="home-banner-image" />
+            <img src={bannerPackage.cover || bannerImage} alt="" className="home-banner-image" />
             <div className="home-banner-overlay" />
             <div className="home-banner-content">
               <h2>{bannerPackage.nombre}</h2>

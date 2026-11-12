@@ -311,9 +311,11 @@ def test_admin_actions_are_logged(client, db_session):
     entries = client.get("/audit/", headers=auth(admin_token)).json()
     descriptions = [entry["descripcion"] for entry in entries]
 
-    assert f"Cambió el estado de la reserva #{reservation['id_reserva']} a cancelada" in descriptions
+    assert f"Cambió el estado de la reserva #{reservation['id_reserva']} «{reservation['codigo_reserva']}» a cancelada" in descriptions
     assert "Creó el cupón VERANO10" in descriptions
-    assert any("dias_recordatorio_viaje=5" in text for text in descriptions)
+    settings = next(entry for entry in entries if entry["entidad"] == "configuracion")
+    assert settings["descripcion"] == "Cambió la configuración"
+    assert {"campo": "Días de anticipación del recordatorio de viaje", "antes": "3", "despues": "5"} in settings["cambios"]
     assert not any("a confirmada" in text for text in descriptions)
     # La creación del paquete del helper también quedó
     assert any(text.startswith("Creó el paquete") for text in descriptions)

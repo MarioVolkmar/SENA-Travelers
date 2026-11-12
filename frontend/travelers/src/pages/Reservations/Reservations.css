@@ -334,3 +334,46 @@
 .pay-sandbox strong {
   color: var(--color-primary);
 }
+
+/* Desglose del IVA (incluido en el total) */
+.reservation-tax {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.78rem;
+  color: var(--color-muted);
+}
+
+.pay-tax {
+  margin: -6px 0 14px;
+  font-size: 0.85rem;
+  color: var(--color-muted);
+  text-align: right;
+}
+
+/* Plazo para pagar una reserva pendiente */
+.reservation-deadline {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(245, 165, 36, 0.12);
+  color: var(--color-text);
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.reservation-deadline svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--color-primary);
+}
+
+.reservation-deadline.is-late {
+  background: rgba(239, 68, 68, 0.12);
+}
+
+.reservation-deadline.is-late svg {
+  color: var(--color-danger);
+}

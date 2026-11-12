@@ -12,9 +12,11 @@ from app.repositories.notification_email_repository import NotificationEmailRepo
 from app.services.email_sender_service import EmailSenderService
 from app.services.email_templates import render_email
 from app.services.voucher_service import long_date, money as voucher_money
+from app.core.taxes import split_iva
 
 from app.core.constants import (
     ADMIN_ROLE_ID,
+    IVA_PERCENT,
     NOTIFICATION_TYPE_EMAIL_VERIFICATION,
     NOTIFICATION_TYPE_RESERVATION_CONFIRMATION,
     NOTIFICATION_TYPE_PAYMENT_CONFIRMATION,
@@ -178,7 +180,8 @@ class NotificationEmailService:
     def create_reservation_confirmation_email(
         self,
         user: UserModel,
-        reservation: ReservationModel
+        reservation: ReservationModel,
+        payment_hours: int | None = None
     ):
         self._ensure_valid_user_for_notification(user)
 
@@ -201,13 +204,20 @@ class NotificationEmailService:
             greeting=f"Hola, {user.nombre}:",
             paragraphs=[
                 f"Apartamos tu lugar en «{package_name}». Para confirmar la reserva y asegurar el cupo, realiza el pago desde Mis reservas.",
+                *(
+                    [f"Tienes {payment_hours} {'hora' if payment_hours == 1 else 'horas'} para pagar. "
+                     "Si no se paga a tiempo, la reserva se cancela sola y el cupo queda libre para otros viajeros."]
+                    if payment_hours else []
+                ),
             ],
             details=[
                 ("Código de reserva", reservation.codigo_reserva),
                 ("Paquete", package_name),
                 ("Fecha del viaje", long_date(reservation.fecha_reserva)),
                 ("Viajeros", people_label(reservation.cantidad_personas)),
-                ("Total", money(reservation.total_reserva)),
+                ("Valor sin IVA", money(split_iva(reservation.total_reserva)[0])),
+                (f"IVA ({IVA_PERCENT} %)", money(split_iva(reservation.total_reserva)[1])),
+                ("Total (IVA incluido)", money(reservation.total_reserva)),
             ],
             button=("Pagar mi reserva", f"{frontend_url()}/reservations"),
             note="Los cupos no se guardan hasta que la reserva esté pagada.",
@@ -253,7 +263,9 @@ class NotificationEmailService:
                 ("Fecha del viaje", long_date(reservation.fecha_reserva)),
                 ("Método de pago", payment.metodo_pago),
                 ("Referencia", payment.referencia_pago),
-                ("Valor pagado", money(payment.valor)),
+                ("Valor sin IVA", money(split_iva(payment.valor)[0])),
+                (f"IVA ({IVA_PERCENT} %)", money(split_iva(payment.valor)[1])),
+                ("Total pagado (IVA incluido)", money(payment.valor)),
             ],
             button=("Descargar mi voucher", f"{frontend_url()}/reservations"),
             note="Lleva tu documento de identidad y el de tus acompañantes.",
@@ -263,7 +275,8 @@ class NotificationEmailService:
         self,
         user: UserModel,
         reservation: ReservationModel,
-        by_admin: bool = False
+        by_admin: bool = False,
+        expired: bool = False
     ):
         self._ensure_valid_user_for_notification(user)
 
@@ -273,7 +286,12 @@ class NotificationEmailService:
         penalidad = reservation.penalidad_cancelacion or 0
         reembolso = reservation.reembolso or 0
 
-        if by_admin:
+        if expired:
+            detalle = (
+                "Se venció el plazo para pagarla, así que se canceló automáticamente y su cupo quedó libre. "
+                "No se hizo ningún cobro. Si aún quieres viajar, puedes reservar de nuevo mientras haya cupos."
+            )
+        elif by_admin:
             detalle = "La cancelación la realizó Travelers, así que no tiene penalidad. " + (
                 f"Te reembolsaremos el valor completo: {money(reembolso)}."
                 if reembolso > 0
@@ -313,7 +331,10 @@ class NotificationEmailService:
                 detalle,
             ],
             details=details,
-            button=("Ver otros paquetes", f"{frontend_url()}/packages"),
+            button=(
+                ("Reservar de nuevo", f"{frontend_url()}/packages/{reservation.id_paquete_turistico}")
+                if expired else ("Ver otros paquetes", f"{frontend_url()}/packages")
+            ),
             note="Esperamos verte pronto en tu próximo viaje.",
         )
 

@@ -18,7 +18,7 @@ def coupon_payload(**overrides):
         "descripcion": "10 % de descuento",
         "tipo": "porcentaje",
         "valor": "10",
-        "fecha_inicio": "2026-07-01",
+        "fecha_inicio": "2026-08-01",
         "fecha_fin": "2026-12-31",
     }
     data.update(overrides)
@@ -76,7 +76,6 @@ def test_coupon_discount_applies_to_reservation(client, db_session):
 @pytest.mark.parametrize(
     "overrides, message",
     [
-        ({"fecha_fin": "2026-07-15"}, "venció"),
         ({"fecha_inicio": "2026-08-10"}, "vigente"),
         ({"estado": "inactivo"}, "activo"),
         ({"monto_minimo": "5000000"}, "desde"),
@@ -95,9 +94,54 @@ def test_invalid_coupons_are_rejected(client, db_session, overrides, message):
     assert message in response.json()["detail"]
 
 
+def test_expired_coupon_is_rejected(client, db_session, frozen_today):
+    # Ya no se puede crear un cupón vencido: se crea vigente y luego pasa el tiempo
+    package, admin_token, client_token, _ = setup(client, db_session)
+    client.post("/coupons/", json=coupon_payload(fecha_fin="2026-08-15"), headers=auth(admin_token))
+    frozen_today(date(2026, 8, 20))
+
+    response = client.post(
+        "/coupons/validate",
+        json={"codigo": "VERANO10", "id_paquete_turistico": package["id_paquete_turistico"], "cantidad_personas": 1},
+        headers=auth(client_token),
+    )
+    assert response.status_code == 400
+    assert "venció" in response.json()["detail"]
+
+
+def test_coupon_dates_and_values_have_limits(client, db_session, frozen_today):
+    _, admin_token, _, _ = setup(client, db_session)
+
+    past_start = client.post("/coupons/", json=coupon_payload(codigo="PASADO", fecha_inicio="2026-07-20"), headers=auth(admin_token))
+    huge_percent = client.post("/coupons/", json=coupon_payload(codigo="CASIGRATIS", valor="95"), headers=auth(admin_token))
+    huge_value = client.post("/coupons/", json=coupon_payload(codigo="MILLONARIO", tipo="valor", valor="6000000"), headers=auth(admin_token))
+    assert past_start.status_code == 400 and "anterior a hoy" in past_start.json()["detail"]
+    assert huge_percent.status_code == 400 and "porcentaje" in huge_percent.json()["detail"]
+    assert huge_value.status_code == 400
+
+    # Un cupón que ya empezó se puede editar sin tocar su inicio, pero no moverlo al pasado
+    coupon = client.post("/coupons/", json=coupon_payload(fecha_fin="2026-12-31"), headers=auth(admin_token)).json()
+    frozen_today(date(2026, 9, 1))
+    keep = client.patch(f"/coupons/{coupon['id_cupon']}", json={"descripcion": "Nueva", "fecha_inicio": "2026-08-01"}, headers=auth(admin_token))
+    move = client.patch(f"/coupons/{coupon['id_cupon']}", json={"fecha_inicio": "2026-08-15"}, headers=auth(admin_token))
+    assert keep.status_code == 200, keep.json()
+    assert move.status_code == 400
+
+
+def test_reservation_travelers_are_limited(client, db_session):
+    package, _, client_token, _ = setup(client, db_session)
+
+    response = client.post(
+        "/reservations/",
+        json={"id_paquete_turistico": package["id_paquete_turistico"], "fecha_reserva": "2026-09-10", "cantidad_personas": 11, "acompanantes": []},
+        headers=auth(client_token),
+    )
+    assert response.status_code == 422
+
+
 def test_fixed_amount_coupon_never_exceeds_total(client, db_session):
     package, admin_token, client_token, _ = setup(client, db_session)
-    client.post("/coupons/", json=coupon_payload(codigo="GRATIS", tipo="valor", valor="9000000"), headers=auth(admin_token))
+    client.post("/coupons/", json=coupon_payload(codigo="GRATIS", tipo="valor", valor="5000000"), headers=auth(admin_token))
 
     preview = client.post(
         "/coupons/validate",
@@ -293,6 +337,13 @@ def test_reports_summary_and_exports(client, db_session):
     data = summary.json()
     assert data["kpis"]["reservas"] == 2
     assert Decimal(data["kpis"]["ventas_netas"]) == Decimal("1300000")
+    # IVA del 19 % incluido en las ventas: base + IVA = ventas, y el margen se calcula sin IVA
+    # (los KPI llegan como número JSON: se pasan por str() para no arrastrar decimales binarios)
+    kpi = {key: Decimal(str(value)) for key, value in data["kpis"].items() if isinstance(value, (int, float, str)) and key != "iva_porcentaje"}
+    assert kpi["ventas_sin_iva"] == Decimal("1092436.97")
+    assert kpi["iva_generado"] == Decimal("207563.03")
+    assert kpi["margen"] == kpi["ventas_sin_iva"] - kpi["costo_proveedores"]
+    assert sum(Decimal(str(m["iva"])) for m in data["ventas_por_mes"]) == Decimal("207563.03")
     assert data["top_paquetes"][0]["paquete"] == package["nombre"]
 
     xlsx = client.get("/reports/export?formato=xlsx&desde=2025-06-01&hasta=2027-12-31", headers=auth(admin_token))

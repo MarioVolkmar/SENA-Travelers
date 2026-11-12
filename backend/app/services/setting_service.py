@@ -5,6 +5,8 @@ from app.core.constants import (
     DEFAULT_SETTINGS,
     SETTING_CANCELLATION_FREE_DAYS,
     SETTING_CANCELLATION_PENALTY_PERCENT,
+    SETTING_PAYMENT_HOURS,
+    SETTING_PROVIDER_PAYMENT_DAY,
     SETTING_PROVIDER_PAYMENT_DAYS,
     SETTING_REMINDER_DAYS,
 )
@@ -16,6 +18,8 @@ EDITABLE_SETTINGS = (
     SETTING_CANCELLATION_FREE_DAYS,
     SETTING_CANCELLATION_PENALTY_PERCENT,
     SETTING_REMINDER_DAYS,
+    SETTING_PAYMENT_HOURS,
+    SETTING_PROVIDER_PAYMENT_DAY,
 )
 
 
@@ -43,6 +47,12 @@ class SettingService:
 
     def reminder_days(self) -> int:
         return self.get_int(SETTING_REMINDER_DAYS)
+
+    def provider_payment_day(self) -> int:
+        return self.get_int(SETTING_PROVIDER_PAYMENT_DAY)
+
+    def payment_hours(self) -> int:
+        return self.get_int(SETTING_PAYMENT_HOURS)
 
     def all_settings(self):
         return {clave: self.get_int(clave) for clave in EDITABLE_SETTINGS}

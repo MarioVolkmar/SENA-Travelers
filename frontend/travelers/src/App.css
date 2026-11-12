@@ -473,6 +473,16 @@ select option:checked {
   color: var(--color-muted);
 }
 
+/* Valor fuera de rango: mensaje en rojo y borde del campo en rojo */
+.field-hint.field-error {
+  color: var(--color-danger);
+}
+
+.field input[aria-invalid='true'],
+.form-group input[aria-invalid='true'] {
+  border-color: var(--color-danger);
+}
+
 .form-group {
   display: flex;
   flex-direction: column;

@@ -84,7 +84,7 @@ function PackageCard({ touristPackage, variant = 'card' }) {
             <span className="package-card-old-price">{formatCurrency(touristPackage.precio)}</span>
           )}
           <strong>{formatCurrency(finalPrice(touristPackage))}</strong>
-          <span className="package-card-per">por persona</span>
+          <span className="package-card-per">por persona · IVA incl.</span>
         </div>
       </div>
     </Link>

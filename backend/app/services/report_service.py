@@ -33,6 +33,8 @@ from app.models.reservation_model import ReservationModel
 from app.models.review_model import ReviewModel
 from app.models.tourist_package_model import TouristPackageModel
 from app.models.user_model import UserModel
+from app.core.constants import IVA_PERCENT
+from app.core.taxes import split_iva
 
 MONTHS_SHORT = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"]
 STATUS_LABELS = {"pendiente": "Pendiente", "confirmada": "Confirmada", "cancelada": "Cancelada"}
@@ -111,7 +113,7 @@ class ReportService:
             return ZERO
 
         keys = month_keys(desde, hasta)
-        by_month = {key: {"ventas": ZERO, "reservas": 0, "viajeros": 0} for key in keys}
+        by_month = {key: {"ventas": ZERO, "ventas_sin_iva": ZERO, "iva": ZERO, "reservas": 0, "viajeros": 0} for key in keys}
         by_status = defaultdict(int)
         by_package = defaultdict(lambda: {"reservas": 0, "viajeros": 0, "ventas": ZERO})
         by_city = defaultdict(lambda: {"reservas": 0, "ventas": ZERO})
@@ -129,8 +131,11 @@ class ReportService:
 
             by_status[reservation.estado] += 1
             if key in by_month:
+                base, iva = split_iva(sale)
                 by_month[key]["reservas"] += 1
                 by_month[key]["ventas"] += sale
+                by_month[key]["ventas_sin_iva"] += base
+                by_month[key]["iva"] += iva
 
             total_sales += sale
             coupon_discounts += Decimal(reservation.descuento_cupon or 0)
@@ -169,13 +174,21 @@ class ReportService:
         total = len(reservations)
         cancelled = by_status.get(RESERVATION_STATUS_CANCELLED, 0)
 
+        # Las ventas incluyen el IVA: el impuesto es de la DIAN, no de la agencia,
+        # así que el margen se calcula sobre las ventas sin IVA.
+        sales_without_iva = sum((month["ventas_sin_iva"] for month in by_month.values()), ZERO)
+        iva_generated = sum((month["iva"] for month in by_month.values()), ZERO)
+
         return {
             "desde": desde,
             "hasta": hasta,
             "kpis": {
                 "ventas_netas": total_sales,
+                "ventas_sin_iva": sales_without_iva,
+                "iva_generado": iva_generated,
+                "iva_porcentaje": IVA_PERCENT,
                 "costo_proveedores": provider_costs,
-                "margen": total_sales - provider_costs,
+                "margen": sales_without_iva - provider_costs,
                 "reservas": total,
                 "viajeros": travelers,
                 "ticket_promedio": (total_sales / paid_count).quantize(Decimal("1")) if paid_count else ZERO,
@@ -234,9 +247,11 @@ class ReportService:
         summary["A2"] = f"Del {report['desde']:%d/%m/%Y} al {report['hasta']:%d/%m/%Y}"
         k = report["kpis"]
         kpis = [
-            ("Ventas netas", k["ventas_netas"]),
+            ("Ventas netas (IVA incluido)", k["ventas_netas"]),
+            ("Ventas sin IVA", k["ventas_sin_iva"]),
+            (f"IVA generado ({k['iva_porcentaje']} %)", k["iva_generado"]),
             ("Costo de proveedores", k["costo_proveedores"]),
-            ("Margen", k["margen"]),
+            ("Margen (sin IVA)", k["margen"]),
             ("Reservas", k["reservas"]),
             ("Viajeros", k["viajeros"]),
             ("Ticket promedio", k["ticket_promedio"]),
@@ -245,15 +260,15 @@ class ReportService:
             ("Calificación promedio", k["calificacion_promedio"] or "Sin reseñas"),
         ]
         table(summary, 4, ["Indicador", "Valor"], kpis)
-        for row in (5, 6, 7, 10, 12):
+        for row in (5, 6, 7, 8, 9, 12, 14):
             summary.cell(row=row, column=2).number_format = '"$" #,##0'
 
         # Ventas por mes + gráfica
         months = workbook.create_sheet("Ventas por mes")
         last = table(
-            months, 1, ["Mes", "Ventas netas", "Reservas", "Viajeros"],
-            [(m["etiqueta"], m["ventas"], m["reservas"], m["viajeros"]) for m in report["ventas_por_mes"]],
-            money_cols=(2,),
+            months, 1, ["Mes", "Ventas netas", "Ventas sin IVA", "IVA", "Reservas", "Viajeros"],
+            [(m["etiqueta"], m["ventas"], m["ventas_sin_iva"], m["iva"], m["reservas"], m["viajeros"]) for m in report["ventas_por_mes"]],
+            money_cols=(2, 3, 4),
         )
         if last > 1:
             chart = BarChart()
@@ -262,7 +277,7 @@ class ReportService:
             chart.add_data(Reference(months, min_col=2, min_row=1, max_row=last), titles_from_data=True)
             chart.set_categories(Reference(months, min_col=1, min_row=2, max_row=last))
             chart.width, chart.height = 22, 10
-            months.add_chart(chart, "F2")
+            months.add_chart(chart, "H2")
 
         # Estados + torta
         states = workbook.create_sheet("Reservas por estado")
@@ -315,14 +330,14 @@ class ReportService:
         # Tarjetas de indicadores (2 filas x 4)
         k = report["kpis"]
         cards = [
-            ("Ventas netas", money(k["ventas_netas"])),
-            ("Margen", money(k["margen"])),
+            ("Ventas (IVA incl.)", money(k["ventas_netas"])),
+            ("Ventas sin IVA", money(k["ventas_sin_iva"])),
+            (f"IVA ({k['iva_porcentaje']} %)", money(k["iva_generado"])),
+            ("Margen sin IVA", money(k["margen"])),
             ("Reservas", str(k["reservas"])),
             ("Viajeros", str(k["viajeros"])),
-            ("Ticket promedio", money(k["ticket_promedio"])),
             ("Cancelación", f"{k['tasa_cancelacion']} %"),
             ("Cupones", money(k["descuentos_cupones"])),
-            ("Calificación", f"{k['calificacion_promedio']} ★" if k["calificacion_promedio"] else "—"),
         ]
         card_w = (width - 2 * margin - 3 * 4 * mm) / 4
         card_h = 18 * mm
@@ -401,6 +416,10 @@ class ReportService:
                 y -= 6 * mm
             y -= 6 * mm
 
+        section(f"IVA por mes ({k['iva_porcentaje']} %, incluido en las ventas)", ["Mes", "Ventas netas", "Ventas sin IVA", "IVA"],
+                [(m["etiqueta"], money(m["ventas"]), money(m["ventas_sin_iva"]), money(m["iva"]))
+                 for m in report["ventas_por_mes"] if m["ventas"]],
+                [60 * mm, 40 * mm, 40 * mm, 36 * mm])
         section("Paquetes más vendidos", ["Paquete", "Ventas netas", "Reservas", "Viajeros"],
                 [(p["paquete"], money(p["ventas"]), p["reservas"], p["viajeros"]) for p in report["top_paquetes"]],
                 [92 * mm, 36 * mm, 24 * mm, 24 * mm])
@@ -413,7 +432,7 @@ class ReportService:
 
         pdf.setFillColor(muted)
         pdf.setFont("Helvetica", 7.5)
-        pdf.drawString(margin, 10 * mm, f"Generado el {datetime.now():%d/%m/%Y %H:%M} · Ventas netas = pagos aprobados + penalidades retenidas")
+        pdf.drawString(margin, 10 * mm, f"Generado el {datetime.now():%d/%m/%Y %H:%M} · Ventas netas = pagos aprobados + penalidades retenidas (IVA incluido) · Margen = ventas sin IVA - costo de proveedores")
 
         pdf.showPage()
         pdf.save()

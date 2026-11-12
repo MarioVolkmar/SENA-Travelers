@@ -39,8 +39,11 @@ def test_cannot_reserve_more_people_than_available_slots(client, db_session):
     )
     package_id = package["id_paquete_turistico"]
 
-    first = create_reservation(client, client_token, package_id, cantidad_personas=15, acompanantes=[])
+    # Máximo 10 viajeros por reserva: 10 + 5 ocupan 15 de los 20 cupos
+    first = create_reservation(client, client_token, package_id, cantidad_personas=10, acompanantes=[])
     assert first.status_code == 201, first.json()
+    extra = create_reservation(client, client_token, package_id, cantidad_personas=5, acompanantes=[])
+    assert extra.status_code == 201, extra.json()
 
     availability = client.get(f"/reservations/availability/{package_id}").json()
     assert availability == {"id_paquete_turistico": package_id, "cupo_max": 20, "cupos_disponibles": 5}
@@ -58,7 +61,7 @@ def test_client_can_cancel_own_pending_reservation_and_frees_slots(client, db_se
     package_id = package["id_paquete_turistico"]
     headers = {"Authorization": f"Bearer {client_token}"}
 
-    reservation = create_reservation(client, client_token, package_id, cantidad_personas=20, acompanantes=[]).json()
+    reservation = create_reservation(client, client_token, package_id, cantidad_personas=10, acompanantes=[]).json()
 
     response = client.patch(f"/reservations/{reservation['id_reserva']}/cancel", headers=headers)
     assert response.status_code == 200

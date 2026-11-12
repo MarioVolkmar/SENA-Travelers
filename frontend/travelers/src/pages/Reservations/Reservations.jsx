@@ -14,6 +14,23 @@ import { formatCurrency, formatDate, getErrorMessage } from '../../utils/format'
 import './Reservations.css';
 import usePageTitle from '../../hooks/usePageTitle';
 import { PageSkeleton } from '../../components/Skeleton/Skeleton';
+import { IVA_PERCENT, splitIva } from '../../utils/taxes';
+
+/** "12 nov, 3:45 p. m.": fecha y hora límite para pagar, en la hora local del viajero. */
+function formatDeadline(value) {
+  return new Date(value).toLocaleString('es-CO', {
+    day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit',
+  });
+}
+
+/** Horas o minutos que faltan, para destacar cuando queda poco. */
+function timeLeft(value) {
+  const minutes = Math.round((new Date(value).getTime() - Date.now()) / 60000);
+  if (minutes <= 0) return null;
+  if (minutes < 60) return `${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  return hours < 48 ? `${hours} h` : `${Math.floor(hours / 24)} días`;
+}
 
 const PAYMENT_METHODS = ['Tarjeta de crédito', 'Tarjeta débito', 'PSE', 'Nequi'];
 
@@ -376,7 +393,11 @@ function Reservations() {
                       <dt>Viajeros</dt>
                       <dd>{reservation.cantidad_personas} {reservation.cantidad_personas === 1 ? 'persona' : 'personas'}</dd>
                     </div>
-                    <div><dt>Total</dt><dd className="reservation-total">{formatCurrency(reservation.total_reserva)}</dd></div>
+                    <div>
+                      <dt>Total</dt>
+                      <dd className="reservation-total">{formatCurrency(reservation.total_reserva)}</dd>
+                      <small className="reservation-tax">Incluye IVA ({IVA_PERCENT} %): {formatCurrency(splitIva(reservation.total_reserva).iva)}</small>
+                    </div>
                     {payment && (
                       <div>
                         <dt>Pago · {PAYMENT_STATUS_LABELS[payment.estado_pago] || payment.estado_pago}</dt>
@@ -390,6 +411,20 @@ function Reservations() {
                       </>
                     )}
                   </dl>
+
+                  {isPending && reservation.vence_pago && (() => {
+                    const left = timeLeft(reservation.vence_pago);
+                    return (
+                      <p className={`reservation-deadline ${left ? '' : 'is-late'}`}>
+                        <Icon name="clock" size={16} />
+                        <span>
+                          {left
+                            ? <>Paga antes del <strong>{formatDeadline(reservation.vence_pago)}</strong> (quedan {left}) o se cancelará sola y el cupo quedará libre.</>
+                            : 'Se venció el plazo para pagar: la reserva se cancelará en unos minutos. Puedes reservar de nuevo si hay cupos.'}
+                        </span>
+                      </p>
+                    );
+                  })()}
 
                   {cancellable && freeUntil && (
                     <p className={`reservation-policy ${freeStill ? '' : 'is-late'}`}>
@@ -445,7 +480,7 @@ function Reservations() {
                             setPayingReservation(reservation);
                             setModalError('');
                           }}
-                          disabled={actionLoading}
+                          disabled={actionLoading || (reservation.vence_pago && !timeLeft(reservation.vence_pago))}
                         >
                           Pagar {formatCurrency(reservation.total_reserva)}
                         </button>
@@ -555,6 +590,10 @@ function Reservations() {
             <p className="pay-summary">
               <span>{payingReservation.codigo_reserva}</span>
               <strong>{formatCurrency(payingReservation.total_reserva)}</strong>
+            </p>
+            <p className="pay-tax">
+              Valor sin IVA {formatCurrency(splitIva(payingReservation.total_reserva).base)}
+              {' '}+ IVA ({IVA_PERCENT} %) {formatCurrency(splitIva(payingReservation.total_reserva).iva)}
             </p>
 
             {modalError && <div className="alert alert-error">{modalError}</div>}

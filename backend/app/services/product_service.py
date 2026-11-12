@@ -22,8 +22,18 @@ from app.core.constants import (
     PROVIDER_ROLE_ID,
     PROVIDER_STATUS_APPROVED,
     PRODUCT_STATUS_ACTIVE,
-    ALLOWED_PRODUCT_STATUS
+    ALLOWED_PRODUCT_STATUS,
+    PRODUCT_COST_MAX,
+    PRODUCT_COST_MIN,
 )
+
+
+def _ensure_reasonable_cost(costo):
+    """El costo de un producto debe estar dentro de un rango razonable (ver constants.py)."""
+    if costo is not None and not (PRODUCT_COST_MIN <= costo <= PRODUCT_COST_MAX):
+        minimo = f"${PRODUCT_COST_MIN:,.0f}".replace(",", ".")
+        maximo = f"${PRODUCT_COST_MAX:,.0f}".replace(",", ".")
+        raise ValueError(f"El costo del producto debe estar entre {minimo} y {maximo}")
 
 
 class ProductService:
@@ -133,6 +143,7 @@ class ProductService:
         raise PermissionError("No tienes permisos para crear productos")
 
     def create_product(self, product_data: ProductCreate, current_user: UserModel):
+        _ensure_reasonable_cost(product_data.costo)
         self._ensure_city_exists(product_data.ciudad_id)
 
         provider = self._resolve_provider_for_create(
@@ -165,6 +176,37 @@ class ProductService:
         self._ensure_admin(current_user)
 
         return self._get_product_or_raise(id_producto)
+
+    def list_packages_using(self, id_producto: int, current_user: UserModel):
+        """Paquetes que incluyen el producto (para su ficha en la consola)."""
+        from app.models.tourist_package_model import TouristPackageModel
+        from app.models.tourist_package_product_model import TouristPackageProductModel
+
+        self._ensure_admin(current_user)
+        self._get_product_or_raise(id_producto)
+        db = self.product_repository.db
+        rows = (
+            db.query(TouristPackageModel, TouristPackageProductModel.cantidad)
+            .join(
+                TouristPackageProductModel,
+                TouristPackageProductModel.paquetes_turisticos_id_paquete_turistico
+                == TouristPackageModel.id_paquete_turistico,
+            )
+            .filter(TouristPackageProductModel.productos_id_producto == id_producto)
+            .order_by(TouristPackageModel.fecha_inicio.desc())
+            .all()
+        )
+        return [
+            {
+                "id_paquete_turistico": package.id_paquete_turistico,
+                "nombre": package.nombre,
+                "estado": package.estado,
+                "fecha_inicio": package.fecha_inicio,
+                "fecha_fin": package.fecha_fin,
+                "cantidad": cantidad,
+            }
+            for package, cantidad in rows
+        ]
 
     def list_active_products(self):
         return self.product_repository.list_active_products()
@@ -200,6 +242,8 @@ class ProductService:
 
         if not product_data_dict:
             raise ValueError("No se enviaron datos para actualizar")
+
+        _ensure_reasonable_cost(product_data_dict.get("costo"))
 
         if "ciudad_id" in product_data_dict:
             self._ensure_city_exists(product_data_dict["ciudad_id"])

@@ -24,3 +24,27 @@ export function includeItems(incluye) {
   const extras = (incluye.otros || []).map((text) => ({ key: `otro-${text}`, text, icon: 'check' }));
   return [...known, ...extras];
 }
+
+// "Incluye alojamiento, desayunos y recorrido." -> ["Alojamiento", "Desayunos", "Recorrido"]
+export function describedIncludes(description) {
+  if (!description) return [];
+  const match = description.match(/incluye\s+([^.]+)\./i);
+  if (!match) return [];
+
+  // "A, B, C y D con ida y regreso": se separa por comas y solo la primera " y "
+  // del último tramo une dos elementos (la de "ida y regreso" no se toca)
+  const parts = match[1].split(/,\s*/).map((item) => item.trim().replace(/^y\s+/i, ''));
+  const last = parts.pop() || '';
+  const joinIndex = last.search(/\s+y\s+/i);
+
+  if (joinIndex > 0 && parts.length > 0) {
+    parts.push(last.slice(0, joinIndex), last.slice(joinIndex).replace(/^\s+y\s+/i, ''));
+  } else {
+    parts.push(last);
+  }
+
+  return parts
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .map((item) => item.charAt(0).toUpperCase() + item.slice(1));
+}

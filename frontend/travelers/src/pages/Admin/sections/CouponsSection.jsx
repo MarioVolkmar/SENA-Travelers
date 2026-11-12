@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import api from '../../../api/axiosConfig';
 import useConfirm from '../../../components/ConfirmDialog/useConfirm';
 import DatePicker from '../../../components/DatePicker/DatePicker';
-import { todayKey } from '../../../components/DatePicker/calendarUtils';
+import { laterKey, todayKey } from '../../../components/DatePicker/calendarUtils';
 import Icon from '../../../components/Icon/Icon';
 import IconButton from '../../../components/IconButton/IconButton';
 import Modal from '../../../components/Modal/Modal';
@@ -11,8 +11,10 @@ import Pagination, { usePagination } from '../../../components/Pagination/Pagina
 import Select from '../../../components/Select/Select';
 import Toast from '../../../components/Toast/Toast';
 import { formatCurrency, formatDate, getErrorMessage } from '../../../utils/format';
+import { LIMITS, useLimits } from '../../../utils/limits';
 import { matches, useAdminAction } from '../adminShared';
 import ConfirmDeleteModal from './ConfirmDeleteModal';
+import NumberField, { numberError } from '../../../components/NumberField/NumberField';
 
 const FILTERS = [
   { key: '', label: 'Todos' },
@@ -47,6 +49,7 @@ const EMPTY = {
 };
 
 function CouponFormModal({ coupon, onClose, onSaved }) {
+  useLimits(); // vuelve a pintar cuando llegan los límites del backend
   const [form, setForm] = useState(() => (coupon
     ? {
       ...EMPTY,
@@ -61,6 +64,24 @@ function CouponFormModal({ coupon, onClose, onSaved }) {
   const [error, setError] = useState('');
 
   const update = (key) => (event) => setForm((current) => ({ ...current, [key]: event.target.value }));
+
+  // Rangos de los números: con alguno fuera de rango no se deja guardar
+  const valueRange = form.tipo === 'porcentaje' ? LIMITS.couponPercent : LIMITS.couponValue;
+  const numbersInvalid = Boolean(
+    numberError(form.valor, valueRange)
+    || numberError(form.usos_maximos, LIMITS.couponUses, { optional: true })
+    || numberError(form.monto_minimo, LIMITS.couponMinPurchase, { optional: true })
+  );
+
+  // Si el nuevo inicio queda después del fin, el fin se borra para elegirlo de nuevo
+  const updateStart = (event) => {
+    const start = event.target.value;
+    setForm((current) => ({
+      ...current,
+      fecha_inicio: start,
+      fecha_fin: current.fecha_fin && current.fecha_fin < start ? '' : current.fecha_fin,
+    }));
+  };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -97,7 +118,7 @@ function CouponFormModal({ coupon, onClose, onSaved }) {
       footer={(
         <>
           <button type="button" className="btn btn-secondary" onClick={onClose} disabled={saving}>Cancelar</button>
-          <button type="submit" form="coupon-form" className="btn btn-primary" disabled={saving}>
+          <button type="submit" form="coupon-form" className="btn btn-primary" disabled={saving || numbersInvalid}>
             {saving ? 'Guardando...' : coupon ? 'Guardar cambios' : 'Crear cupón'}
           </button>
         </>
@@ -135,35 +156,47 @@ function CouponFormModal({ coupon, onClose, onSaved }) {
             <option value="valor">Valor fijo (COP)</option>
           </Select>
         </div>
-        <div className="field">
-          <label htmlFor="coupon-value">{form.tipo === 'porcentaje' ? 'Porcentaje' : 'Valor en pesos'}</label>
-          <input
-            id="coupon-value"
-            type="number"
-            min="1"
-            max={form.tipo === 'porcentaje' ? 100 : undefined}
-            step={1}
-            value={form.valor}
-            onChange={update('valor')}
-            required
-          />
-        </div>
+        <NumberField
+          id="coupon-value"
+          label={form.tipo === 'porcentaje' ? 'Porcentaje' : 'Valor en pesos'}
+          value={form.valor}
+          onChange={update('valor')}
+          range={valueRange}
+          money={form.tipo !== 'porcentaje'}
+          unit={form.tipo === 'porcentaje' ? ' %' : ''}
+          hint={form.tipo === 'porcentaje'
+            ? `Entre ${LIMITS.couponPercent.min} y ${LIMITS.couponPercent.max} %.`
+            : `Entre ${formatCurrency(LIMITS.couponValue.min)} y ${formatCurrency(LIMITS.couponValue.max)}.`}
+        />
         <div className="field">
           <label htmlFor="coupon-start">Válido desde</label>
-          <DatePicker id="coupon-start" value={form.fecha_inicio} onChange={update('fecha_inicio')} required />
+          <DatePicker id="coupon-start" value={form.fecha_inicio} onChange={updateStart} min={todayKey()} required />
         </div>
         <div className="field">
           <label htmlFor="coupon-end">Válido hasta</label>
-          <DatePicker id="coupon-end" value={form.fecha_fin} onChange={update('fecha_fin')} min={form.fecha_inicio || undefined} required />
+          <DatePicker id="coupon-end" value={form.fecha_fin} onChange={update('fecha_fin')} min={laterKey(form.fecha_inicio, todayKey())} required />
         </div>
-        <div className="field">
-          <label htmlFor="coupon-uses">Usos máximos</label>
-          <input id="coupon-uses" type="number" min="1" value={form.usos_maximos} onChange={update('usos_maximos')} placeholder="Sin límite" />
-        </div>
-        <div className="field">
-          <label htmlFor="coupon-min">Compra mínima (COP)</label>
-          <input id="coupon-min" type="number" min="0" step="1" value={form.monto_minimo} onChange={update('monto_minimo')} placeholder="Sin mínimo" />
-        </div>
+        <NumberField
+          id="coupon-uses"
+          label="Usos máximos"
+          placeholder="Sin límite"
+          value={form.usos_maximos}
+          onChange={update('usos_maximos')}
+          range={LIMITS.couponUses}
+          optional
+          hint={`Opcional. Entre ${LIMITS.couponUses.min} y ${LIMITS.couponUses.max.toLocaleString('es-CO')} usos.`}
+        />
+        <NumberField
+          id="coupon-min"
+          label="Compra mínima (COP)"
+          placeholder="Sin mínimo"
+          value={form.monto_minimo}
+          onChange={update('monto_minimo')}
+          range={LIMITS.couponMinPurchase}
+          optional
+          money
+          hint={`Opcional. Hasta ${formatCurrency(LIMITS.couponMinPurchase.max)}.`}
+        />
       </form>
     </Modal>
   );

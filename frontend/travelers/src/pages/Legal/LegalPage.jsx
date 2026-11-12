@@ -39,6 +39,7 @@ function Terms() {
       <h2>3. Paquetes, precios y cupos</h2>
       <ul>
         <li>Los precios se muestran en pesos colombianos, por persona, e incluyen los servicios descritos en cada paquete en “Qué incluye”.</li>
+        <li>Todos los precios <strong>incluyen el IVA del 19 %</strong>. En el resumen de la reserva, el pago, el voucher y los correos se muestra el desglose: valor sin IVA + IVA = total.</li>
         <li>Los cupos son limitados; el sistema solo permite reservar mientras haya cupos disponibles.</li>
         <li>Los descuentos y cupones aplican según sus condiciones y no son acumulables salvo que se indique lo contrario.</li>
       </ul>
@@ -46,6 +47,7 @@ function Terms() {
       <h2>4. Reservas y pagos</h2>
       <ul>
         <li>Una reserva queda <strong>pendiente</strong> al crearla y se <strong>confirma</strong> cuando se registra el pago total.</li>
+        <li>Las reservas pendientes tienen un plazo para pagarse (se muestra en “Mis reservas”). Si vence sin pago, la reserva se cancela automáticamente, sin ningún cobro, y sus cupos quedan libres.</li>
         <li>Con la reserva confirmada puedes descargar tu voucher, que incluye un código QR para verificar su autenticidad.</li>
         <li>Recibirás por correo la confirmación de la reserva y del pago.</li>
       </ul>
@@ -166,7 +168,7 @@ function Cancellations() {
       <ul>
         <li><strong>Hasta {freeDays} días antes del viaje:</strong> se devuelve el 100 % de lo pagado.</li>
         <li><strong>Después de esa fecha:</strong> se cobra una penalidad del {penalty} % sobre lo pagado y se devuelve el resto.</li>
-        <li><strong>Reservas pendientes (sin pago):</strong> se cancelan sin ningún cobro.</li>
+        <li><strong>Reservas pendientes (sin pago):</strong> se cancelan sin ningún cobro. Si no se pagan en {policy?.horas_para_pagar ?? 24} horas, se cancelan solas.</li>
         <li><strong>El día del viaje o después:</strong> la reserva ya no se puede cancelar.</li>
       </ul>
 

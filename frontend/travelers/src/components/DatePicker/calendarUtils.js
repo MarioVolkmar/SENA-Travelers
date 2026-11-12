@@ -63,3 +63,23 @@ export function formatMonthKey(key) {
 export function todayKey() {
   return toKey(new Date());
 }
+
+/**
+ * La fecha de hace `years` años desde `fromKey` (por defecto hoy), en 'YYYY-MM-DD'.
+ * Sirve para límites de edad: quien nació ese día o antes ya cumplió esos años.
+ * Un 29 de febrero se ajusta al 28 en los años que no son bisiestos.
+ */
+export function yearsBeforeKey(years, fromKey = todayKey()) {
+  const from = parseKey(fromKey) || new Date();
+  const target = new Date(from.getFullYear() - years, from.getMonth(), 1);
+  const lastDay = new Date(target.getFullYear(), target.getMonth() + 1, 0).getDate();
+  target.setDate(Math.min(from.getDate(), lastDay));
+  return toKey(target);
+}
+
+/** La mayor de dos fechas 'YYYY-MM-DD' (ignora las vacías). */
+export function laterKey(a, b) {
+  if (!a) return b;
+  if (!b) return a;
+  return a > b ? a : b;
+}

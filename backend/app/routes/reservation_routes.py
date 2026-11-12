@@ -191,6 +191,21 @@ def cancel_my_reservation(
         )
 
 
+@router.get("/{id_reserva}/detail")
+def get_reservation_detail(
+    id_reserva: int,
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(get_current_user)
+):
+    """Ficha completa de la reserva para la consola (solo administrador)."""
+    try:
+        return ReservationService(db).admin_detail(id_reserva, current_user)
+    except PermissionError as error:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(error))
+    except LookupError as error:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error))
+
+
 @router.get(
     "/{id_reserva}",
     response_model=ReservationResponse

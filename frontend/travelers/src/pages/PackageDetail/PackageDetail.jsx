@@ -10,7 +10,8 @@ import { Stars } from '../../components/StarRating/StarRating';
 import PackageReviews from './PackageReviews';
 import RelatedPackages from '../../components/RelatedPackages/RelatedPackages';
 import { productTypeIcon } from '../../utils/productTypes';
-import { includeItems } from '../../utils/packageIncludes';
+import { useLimits } from '../../utils/limits';
+import { describedIncludes, includeItems } from '../../utils/packageIncludes';
 import { useAuth } from '../../context/AuthContext';
 import {
   datesBetween,
@@ -26,10 +27,10 @@ import {
 import './PackageDetail.css';
 
 import DatePicker from '../../components/DatePicker/DatePicker';
-import { todayKey } from '../../components/DatePicker/calendarUtils';
+import { todayKey, yearsBeforeKey } from '../../components/DatePicker/calendarUtils';
 import usePageTitle from '../../hooks/usePageTitle';
 import { PageSkeleton } from '../../components/Skeleton/Skeleton';
-const MAX_PEOPLE_PER_RESERVATION = 10;
+import { IVA_PERCENT, splitIva } from '../../utils/taxes';
 const MOSAIC_SIZE = 4;
 
 const emptyCompanion = { nombre: '', documento: '', fecha_nacimiento: '' };
@@ -46,30 +47,8 @@ function bookableDates(touristPackage) {
   return datesBetween(touristPackage.fecha_inicio, touristPackage.fecha_fin).filter((date) => date > todayKey);
 }
 
-// "Incluye alojamiento, desayunos y recorrido." -> ["Alojamiento", "Desayunos", "Recorrido"]
-function includedItems(description) {
-  const match = description.match(/incluye\s+([^.]+)\./i);
-  if (!match) return [];
-
-  // "A, B, C y D con ida y regreso": se separa por comas y solo la primera " y "
-  // del último tramo une dos elementos (la de "ida y regreso" no se toca)
-  const parts = match[1].split(/,\s*/).map((item) => item.trim().replace(/^y\s+/i, ''));
-  const last = parts.pop() || '';
-  const joinIndex = last.search(/\s+y\s+/i);
-
-  if (joinIndex > 0 && parts.length > 0) {
-    parts.push(last.slice(0, joinIndex), last.slice(joinIndex).replace(/^\s+y\s+/i, ''));
-  } else {
-    parts.push(last);
-  }
-
-  return parts
-    .map((item) => item.trim())
-    .filter(Boolean)
-    .map((item) => item.charAt(0).toUpperCase() + item.slice(1));
-}
-
 function PackageDetail() {
+  const limits = useLimits();
   const { id } = useParams();
   const navigate = useNavigate();
   const { isAuthenticated, user } = useAuth();
@@ -250,12 +229,12 @@ function PackageDetail() {
   const unitPrice = finalPrice(touristPackage);
   const total = unitPrice * Number(cantidadPersonas || 0);
   const availableSlots = availability?.cupos_disponibles ?? touristPackage.cupo_max;
-  const maxPeople = Math.min(availableSlots, MAX_PEOPLE_PER_RESERVATION);
+  const maxPeople = Math.min(availableSlots, limits.reservationTravelers.max);
   const isInactive = touristPackage.estado !== 'activo';
   // «Qué incluye»: 1) lo elegido en el formulario del paquete; 2) si no hay, la frase
   // «Incluye ...» de la descripción; 3) si tampoco, los productos del paquete
   const chosenItems = includeItems(touristPackage.incluye);
-  const describedItems = includedItems(touristPackage.descripcion);
+  const describedItems = describedIncludes(touristPackage.descripcion);
   const included = chosenItems.length > 0
     ? chosenItems
     : describedItems.length > 0
@@ -405,12 +384,14 @@ function PackageDetail() {
                     <DatePicker
                       id={`companion-birth-${index}`}
                       startView="years"
-                      max={todayKey()}
+                      min={yearsBeforeKey(110)}
+                      max={yearsBeforeKey(7, fechaReserva || todayKey())}
                       placeholder="Elige la fecha"
                       value={companion.fecha_nacimiento}
                       onChange={(event) => handleCompanionChange(index, 'fecha_nacimiento', event.target.value)}
                       required
                     />
+                    <span className="field-hint">Mínimo 7 años el día del viaje.</span>
                   </div>
                 </div>
               </fieldset>
@@ -469,8 +450,17 @@ function PackageDetail() {
               <span>− {formatCurrency(coupon.descuento)}</span>
             </p>
           )}
+          {/* El precio ya incluye el IVA: aquí solo se desglosa */}
+          <p className="booking-tax">
+            <span>Valor sin IVA</span>
+            <span>{formatCurrency(splitIva(coupon ? coupon.total : total).base)}</span>
+          </p>
+          <p className="booking-tax">
+            <span>IVA ({IVA_PERCENT} %)</span>
+            <span>{formatCurrency(splitIva(coupon ? coupon.total : total).iva)}</span>
+          </p>
           <p className="booking-total">
-            <span>Total</span>
+            <span>Total <small>(IVA incluido)</small></span>
             <span>{formatCurrency(coupon ? coupon.total : total)}</span>
           </p>
         </div>
@@ -597,7 +587,7 @@ function PackageDetail() {
               <span className="booking-old-price">{formatCurrency(touristPackage.precio)}</span>
             )}
             <strong>{formatCurrency(unitPrice)}</strong>
-            <span>por persona</span>
+            <span>por persona · IVA incluido</span>
           </p>
 
           {renderBookingContent()}
@@ -606,6 +596,9 @@ function PackageDetail() {
             <p className="booking-policy">
               <Icon name="clock" size={16} />
               <span>
+                {cancellationPolicy.horas_para_pagar && (
+                  <>Tendrás {cancellationPolicy.horas_para_pagar} {cancellationPolicy.horas_para_pagar === 1 ? 'hora' : 'horas'} para pagar la reserva; si no, se cancela sola.{' '}</>
+                )}
                 Cancelación gratis hasta {cancellationPolicy.dias_sin_penalidad} días antes del viaje.
                 Después, penalidad del {cancellationPolicy.porcentaje_penalidad} % de lo pagado.
               </span>

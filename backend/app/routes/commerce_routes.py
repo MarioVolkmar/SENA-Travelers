@@ -15,6 +15,7 @@ from app.services.reminder_service import ReminderService
 from app.services.report_service import ReportService
 from app.services.reservation_service import ReservationService
 from app.services.voucher_service import VoucherService
+from app.core.constants import RESERVATION_TRAVELERS_MAX
 
 
 def handle(error: Exception):
@@ -78,7 +79,7 @@ class CouponResponse(BaseModel):
 class CouponValidate(BaseModel):
     codigo: str = Field(..., min_length=1, max_length=30)
     id_paquete_turistico: int = Field(..., gt=0)
-    cantidad_personas: int = Field(..., gt=0, le=50)
+    cantidad_personas: int = Field(..., gt=0, le=RESERVATION_TRAVELERS_MAX)
 
 
 class CouponPreview(BaseModel):

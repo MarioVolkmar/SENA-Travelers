@@ -32,7 +32,7 @@ const SECTIONS = [
   { key: 'paquetes', label: 'Paquetes', icon: 'box', component: PackagesSection },
   { key: 'productos', label: 'Productos', icon: 'grid', component: ProductsSection },
   { key: 'proveedores', label: 'Proveedores', icon: 'building', component: ProvidersSection, badge: 'proveedores' },
-  { key: 'pagos-proveedores', label: 'Pagos a proveedores', icon: 'card', component: ProviderPaymentsSection, badge: 'ordenes' },
+  { key: 'pagos-proveedores', label: 'Pagos a proveedores', icon: 'card', component: ProviderPaymentsSection },
   { key: 'cupones', label: 'Cupones', icon: 'tag', component: CouponsSection },
   { key: 'resenas', label: 'Reseñas', icon: 'star', component: ReviewsAdminSection },
   { key: 'usuarios', label: 'Usuarios', icon: 'users', component: UsersSection },
@@ -44,9 +44,9 @@ const SECTIONS = [
 function AdminDashboard() {
   const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [pending, setPending] = useState({ reservas: 0, proveedores: 0, ordenes: 0 });
+  const [pending, setPending] = useState({ reservas: 0, proveedores: 0 });
   const [menuOpen, setMenuOpen] = useState(false);
-  const totalPending = pending.reservas + pending.proveedores + pending.ordenes;
+  const totalPending = pending.reservas + pending.proveedores;
 
   const requested = searchParams.get('seccion');
   const active = SECTIONS.find((section) => section.key === requested) || SECTIONS[0];
@@ -56,16 +56,14 @@ function AdminDashboard() {
   // Contadores de pendientes para el menú
   const refreshPending = useCallback(async () => {
     try {
-      const [reservations, providers, orders] = await Promise.all([
+      const [reservations, providers] = await Promise.all([
         api.get('/reservations/'),
         api.get('/providers/pending'),
-        api.get('/provider-payments/?estado=aprobada'),
       ]);
 
       setPending({
         reservas: reservations.data.filter((item) => item.estado === 'pendiente').length,
         proveedores: providers.data.length,
-        ordenes: orders.data.length, // aprobadas, listas para transferir
       });
     } catch {
       // Los contadores son informativos: si fallan, la consola sigue funcionando

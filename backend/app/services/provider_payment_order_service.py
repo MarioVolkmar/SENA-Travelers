@@ -1,12 +1,15 @@
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 from uuid import uuid4
 
 from sqlalchemy.orm import Session
 
+from app.core import clock, storage
 from app.services.app_notification_service import AppNotificationService
 from app.core.constants import (
     ADMIN_ROLE_ID,
+    ORDER_APPROVAL_REMINDER_DAYS,
+    RECEIPT_PREFIX,
     PRODUCT_UNIT_SERVICE,
     PROVIDER_ORDER_APPROVED,
     PROVIDER_ORDER_CANCELLED,
@@ -28,6 +31,20 @@ from app.repositories.provider_repository import ProviderRepository
 from app.services.setting_service import SettingService
 
 OPEN_STATES = (PROVIDER_ORDER_PENDING, PROVIDER_ORDER_APPROVED)
+RECEIPT_MAX_BYTES = 5 * 1024 * 1024  # 5 MB
+NO_BANK_DATA = (
+    "El proveedor aún no ha completado sus datos bancarios. "
+    "No se puede aprobar ni pagar la orden hasta que los registre en su panel."
+)
+
+
+def next_payment_date(day: int, today: date | None = None) -> date:
+    """Próxima fecha de pago a proveedores: el día configurado de este mes o, si ya pasó, del siguiente."""
+    today = today or clock.today()
+    if today.day <= day:
+        return today.replace(day=day)
+    year, month = (today.year + 1, 1) if today.month == 12 else (today.year, today.month + 1)
+    return date(year, month, day)
 
 
 class ProviderPaymentOrderService:
@@ -64,6 +81,22 @@ class ProviderPaymentOrderService:
             raise LookupError("La orden de pago no existe")
 
         return order
+
+    @staticmethod
+    def has_bank_data(provider) -> bool:
+        return bool(provider and provider.numero_cuenta and provider.banco)
+
+    def _ensure_bank_data(self, order: ProviderPaymentOrderModel):
+        if not self.has_bank_data(self.provider_repository.find_by_id(order.proveedor_id)):
+            raise ValueError(NO_BANK_DATA)
+
+    def payment_schedule(self) -> dict:
+        day = self.settings.provider_payment_day()
+        return {
+            "dia_pago": day,
+            "proximo_pago": next_payment_date(day),
+            "dias_para_aprobar": self.settings.provider_payment_days(),
+        }
 
     def _own_provider_or_raise(self, current_user: UserModel):
         provider = self.provider_repository.find_by_user_id(current_user.id_usuario)
@@ -216,6 +249,12 @@ class ProviderPaymentOrderService:
             "referencia_pago": order.referencia_pago,
             "nota": order.nota,
             "detalles": order.detalles,
+            "tiene_datos_bancarios": self.has_bank_data(provider),
+            "fecha_pago_programada": (
+                next_payment_date(self.settings.provider_payment_day())
+                if order.estado == PROVIDER_ORDER_APPROVED else None
+            ),
+            "comprobante_url": storage.public_url(order.comprobante_key) if order.comprobante_key else None,
         }
 
     # ---------------------------------------------------------------
@@ -228,6 +267,7 @@ class ProviderPaymentOrderService:
 
         if order.estado != PROVIDER_ORDER_PENDING:
             raise ValueError("Solo se pueden aprobar órdenes pendientes")
+        self._ensure_bank_data(order)
 
         order.estado = PROVIDER_ORDER_APPROVED
         return self.repository.save(order)
@@ -238,6 +278,7 @@ class ProviderPaymentOrderService:
 
         if order.estado not in OPEN_STATES:
             raise ValueError("Solo se pueden pagar órdenes pendientes o aprobadas")
+        self._ensure_bank_data(order)
 
         order.estado = PROVIDER_ORDER_PAID
         order.referencia_pago = referencia_pago.strip()
@@ -254,6 +295,68 @@ class ProviderPaymentOrderService:
             f"${order.monto:,.0f} · referencia {order.referencia_pago}".replace(",", "."),
         )
         return saved
+
+    def upload_receipt(self, id_orden: int, data: bytes, current_user: UserModel):
+        """Guarda la imagen del comprobante de la transferencia de una orden pagada."""
+        self._ensure_admin(current_user)
+        order = self._get_order_or_raise(id_orden)
+
+        if order.estado != PROVIDER_ORDER_PAID:
+            raise ValueError("Solo se puede adjuntar el comprobante de una orden pagada")
+        if not data:
+            raise ValueError("El archivo está vacío")
+        if len(data) > RECEIPT_MAX_BYTES:
+            raise ValueError("La imagen no puede superar los 5 MB")
+
+        extension = storage.detect_image_extension(data)
+        if extension is None:
+            raise ValueError("Formato no permitido. Usa una imagen JPG, PNG o WEBP")
+
+        key = f"{RECEIPT_PREFIX}{order.codigo}_{uuid4().hex[:8]}.{extension}"
+        storage.upload_file(key, data, storage.IMAGE_CONTENT_TYPES[extension])
+
+        previous = order.comprobante_key
+        order.comprobante_key = key
+        saved = self.repository.save(order)
+
+        if previous:
+            try:
+                storage.delete_file(previous)
+            except Exception:
+                pass  # un archivo viejo suelto no afecta al usuario
+        return saved
+
+    def remind_due_approvals(self) -> int:
+        """
+        Avisa a los administradores (campana) de las órdenes pendientes a las que les
+        quedan 2 días o menos para su plazo de aprobación. Cada orden se avisa una sola vez.
+        """
+        limit = clock.today() + timedelta(days=ORDER_APPROVAL_REMINDER_DAYS)
+        due = (
+            self.db.query(ProviderPaymentOrderModel)
+            .filter(
+                ProviderPaymentOrderModel.estado == PROVIDER_ORDER_PENDING,
+                ProviderPaymentOrderModel.fecha_vencimiento <= limit,
+                ProviderPaymentOrderModel.recordatorio_enviado.is_(None),
+            )
+            .all()
+        )
+
+        notifications = AppNotificationService(self.db)
+        for order in due:
+            provider = self.provider_repository.find_by_id(order.proveedor_id)
+            days = (order.fecha_vencimiento - clock.today()).days
+            when = "venció" if days < 0 else "vence hoy" if days == 0 else f"vence en {days} {'día' if days == 1 else 'días'}"
+            notifications.notify_admins(
+                "orden_por_vencer",
+                f"Orden {order.codigo} por aprobar",
+                f"{provider.nombre_empresa if provider else 'Proveedor'} · ${order.monto:,.0f} · el plazo {when}".replace(",", "."),
+                "/admin?seccion=pagos-proveedores",
+            )
+            order.recordatorio_enviado = datetime.now()
+            self.db.commit()
+
+        return len(due)
 
     def annul(self, id_orden: int, nota: str, current_user: UserModel):
         self._ensure_admin(current_user)

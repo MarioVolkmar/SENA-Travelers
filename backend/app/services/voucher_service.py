@@ -12,7 +12,8 @@ from reportlab.lib.units import mm
 from reportlab.pdfgen import canvas
 from sqlalchemy.orm import Session
 
-from app.core.constants import ADMIN_ROLE_ID, RESERVATION_STATUS_CONFIRMED
+from app.core.constants import ADMIN_ROLE_ID, IVA_PERCENT, RESERVATION_STATUS_CONFIRMED
+from app.core.taxes import split_iva
 from app.models.city_model import CityModel
 from app.models.client_model import ClientModel
 from app.models.companion_model import CompanionModel
@@ -217,6 +218,10 @@ class VoucherService:
         rows = []
         if reservation.descuento_cupon:
             rows.append(("Descuento con cupón", f"- {money(reservation.descuento_cupon)}"))
+        # Desglose del IVA: el total pagado ya lo incluye
+        base, iva = split_iva(reservation.total_reserva)
+        rows.append(("Valor sin IVA", money(base)))
+        rows.append((f"IVA ({IVA_PERCENT} %)", money(iva)))
         if payment is not None:
             rows.append(("Método", payment.metodo_pago.replace("_", " ").capitalize()))
             rows.append(("Referencia", payment.referencia_pago))
@@ -233,7 +238,7 @@ class VoucherService:
         pdf.roundRect(margin, y - 4 * mm, width - 2 * margin, 13 * mm, 3 * mm, stroke=0, fill=1)
         pdf.setFillColor(INK)
         pdf.setFont("Helvetica-Bold", 12)
-        pdf.drawString(margin + 5 * mm, y, "Total pagado")
+        pdf.drawString(margin + 5 * mm, y, "Total pagado (IVA incluido)")
         pdf.setFillColor(colors.HexColor("#b26b00"))
         pdf.drawRightString(width - margin - 5 * mm, y, money(reservation.total_reserva))
 

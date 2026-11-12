@@ -27,6 +27,7 @@ from app.schemas.reservation_schema import (
 
 from app.core.constants import (
     ADMIN_ROLE_ID,
+    MIN_COMPANION_AGE,
     RESERVATION_STATUS_PENDING,
     RESERVATION_STATUS_CANCELLED,
     RESERVATION_STATUS_CONFIRMED,
@@ -120,6 +121,16 @@ class ReservationService:
                 "La cantidad de acompañantes no puede superar la cantidad de personas de la reserva"
             )
 
+    def _ensure_companions_meet_min_age(self, reservation_data):
+        """Cada acompañante debe tener al menos 7 años cumplidos el día del viaje."""
+        for companion in reservation_data.acompanantes:
+            if companion.fecha_nacimiento > clock.today():
+                raise ValueError(f"La fecha de nacimiento de {companion.nombre} no puede ser futura")
+            if clock.age_on(companion.fecha_nacimiento, reservation_data.fecha_reserva) < MIN_COMPANION_AGE:
+                raise ValueError(
+                    f"{companion.nombre} debe tener al menos {MIN_COMPANION_AGE} años el día del viaje"
+                )
+
     def _ensure_valid_reservation_status(self, estado: str):
         if estado not in ALLOWED_RESERVATION_STATUS:
             raise ValueError("Estado de reserva no válido")
@@ -177,6 +188,7 @@ class ReservationService:
 
         # Validar antes de guardar para no dejar reservas huérfanas
         self._ensure_valid_companion_count(reservation_data)
+        self._ensure_companions_meet_min_age(reservation_data)
 
         self._ensure_package_has_capacity(
             tourist_package,
@@ -221,7 +233,8 @@ class ReservationService:
 
         self.notification_email_service.create_reservation_confirmation_email(
             user=current_user,
-            reservation=created_reservation
+            reservation=created_reservation,
+            payment_hours=self.settings.payment_hours()
         )
 
         self.app_notifications.notify(
@@ -232,7 +245,7 @@ class ReservationService:
             "/reservations",
         )
 
-        return created_reservation
+        return self._with_deadline(created_reservation)
 
     def get_reservation_by_id(
         self,
@@ -243,14 +256,125 @@ class ReservationService:
 
         self._ensure_owner_or_admin(reservation, current_user)
 
-        return reservation
+        return self._with_deadline(reservation)
 
     def list_my_reservations(self, current_user: UserModel):
         client = self._get_client_profile_or_raise(current_user)
 
-        return self.reservation_repository.list_by_client_id(
+        return self._with_deadlines(self.reservation_repository.list_by_client_id(
             client.id_cliente
+        ))
+
+    # ---------------------------------------------------------------
+    # Plazo para pagar las reservas pendientes
+    # ---------------------------------------------------------------
+
+    def payment_deadline(self, reservation: ReservationModel, hours: int | None = None):
+        """Fecha y hora límite para pagar (hora del servidor, sin zona). None si no está pendiente."""
+        if reservation.estado != RESERVATION_STATUS_PENDING or reservation.fecha_compra is None:
+            return None
+        return reservation.fecha_compra + timedelta(hours=hours or self.settings.payment_hours())
+
+    def _with_deadlines(self, reservations):
+        hours = self.settings.payment_hours()
+        for reservation in reservations:
+            deadline = self.payment_deadline(reservation, hours)
+            # .astimezone() le pone la zona del servidor: el navegador la muestra en la hora local del viajero
+            reservation.vence_pago = deadline.astimezone() if deadline else None
+        return reservations
+
+    def _with_deadline(self, reservation: ReservationModel):
+        return self._with_deadlines([reservation])[0]
+
+    def ensure_payable_in_time(self, reservation: ReservationModel):
+        """Antes de empezar un pago: si ya pasó el plazo, no se deja pagar (el sistema la cancelará)."""
+        deadline = self.payment_deadline(reservation)
+        if deadline is not None and deadline <= datetime.now():
+            raise ValueError(
+                "Se venció el plazo para pagar esta reserva. Puedes reservar de nuevo mientras haya cupos."
+            )
+
+    @staticmethod
+    def is_expired_cancellation(reservation: ReservationModel) -> bool:
+        """Las vencidas se cancelan sin penalidad ni reembolso registrados (vacíos, no en cero)."""
+        return (
+            reservation.estado == RESERVATION_STATUS_CANCELLED
+            and reservation.fecha_cancelacion is not None
+            and reservation.penalidad_cancelacion is None
+            and reservation.reembolso is None
         )
+
+    def expire_unpaid_reservations(self, now: datetime | None = None) -> int:
+        """
+        Cancela las reservas pendientes cuyo plazo de pago ya pasó y libera sus cupos.
+        Avisa al viajero por correo y en la campana. Devuelve cuántas se cancelaron.
+        """
+        now = now or datetime.now()
+        limit = now - timedelta(hours=self.settings.payment_hours())
+        db = self.reservation_repository.db
+        overdue = (
+            db.query(ReservationModel)
+            .filter(
+                ReservationModel.estado == RESERVATION_STATUS_PENDING,
+                ReservationModel.fecha_compra <= limit,
+            )
+            .all()
+        )
+
+        expired = 0
+        for reservation in overdue:
+            if self.payment_repository.find_by_reservation_id(reservation.id_reserva) is not None:
+                continue  # tiene un pago registrado: no se toca
+
+            cancelled = self.reservation_repository.cancel(
+                reservation,
+                estado=RESERVATION_STATUS_CANCELLED,
+                fecha_cancelacion=now,
+                penalidad=None,
+                reembolso=None,
+            )
+            expired += 1
+
+            client = self.client_repository.find_by_id(cancelled.cliente_id)
+            user = (
+                db.query(UserModel).filter(UserModel.id_usuario == client.usuario_id).first()
+                if client is not None
+                else None
+            )
+            if user is not None:
+                try:
+                    self.notification_email_service.create_reservation_cancellation_email(
+                        user=user, reservation=cancelled, expired=True
+                    )
+                except Exception:  # un correo que falla no detiene las demás cancelaciones
+                    pass
+
+            self.app_notifications.notify_client(
+                cancelled.cliente_id,
+                "reserva_cancelada",
+                f"Reserva {cancelled.codigo_reserva} vencida",
+                "No se pagó a tiempo y se canceló automáticamente. Puedes reservar de nuevo si hay cupos.",
+                "/reservations",
+            )
+
+        return expired
+
+    def reactivate_expired(self, reservation: ReservationModel) -> bool:
+        """
+        Si un pago llega justo después de vencer la reserva (por ejemplo, Stripe tardó),
+        la reserva vuelve a quedar pendiente para registrar el pago, siempre que aún haya cupo.
+        """
+        if not self.is_expired_cancellation(reservation):
+            return False
+        package = self.tourist_package_repository.find_by_id(reservation.id_paquete_turistico)
+        if package is None or self._get_available_slots(package) < reservation.cantidad_personas:
+            return False
+
+        reservation.estado = RESERVATION_STATUS_PENDING
+        reservation.fecha_cancelacion = None
+        self.reservation_repository.db.commit()
+        self.reservation_repository.db.refresh(reservation)
+        return True
 
     def get_package_availability(self, id_paquete_turistico: int):
         tourist_package = self._get_package_or_raise(id_paquete_turistico)
@@ -323,6 +447,7 @@ class ReservationService:
         return {
             "dias_sin_penalidad": self.settings.cancellation_free_days(),
             "porcentaje_penalidad": self.settings.cancellation_penalty_percent(),
+            "horas_para_pagar": self.settings.payment_hours(),
         }
 
     def preview_cancellation(self, id_reserva: int, current_user: UserModel):
@@ -381,10 +506,81 @@ class ReservationService:
 
         return cancelled
 
+    def admin_detail(self, id_reserva: int, current_user: UserModel) -> dict:
+        """
+        Todo lo de una reserva para su ficha en la consola: viajero, acompañantes,
+        paquete, pago (con IVA) y órdenes a proveedores.
+        """
+        from app.core.taxes import split_iva
+        from app.models.companion_model import CompanionModel
+
+        self._ensure_admin(current_user)
+        reservation = self._with_deadline(self._get_reservation_or_raise(id_reserva))
+        db = self.reservation_repository.db
+
+        client = self.client_repository.find_by_id(reservation.cliente_id)
+        user = (
+            db.query(UserModel).filter(UserModel.id_usuario == client.usuario_id).first()
+            if client is not None else None
+        )
+        package = self.tourist_package_repository.find_by_id(reservation.id_paquete_turistico)
+        companions = (
+            db.query(CompanionModel).filter(CompanionModel.reserva_id == reservation.id_reserva).all()
+        )
+        payment = self.payment_repository.find_by_reservation_id(reservation.id_reserva)
+        orders = self.provider_orders.repository.list_by_reservation(reservation.id_reserva)
+        base, iva = split_iva(reservation.total_reserva)
+
+        return {
+            "reserva": {
+                "id_reserva": reservation.id_reserva,
+                "codigo_reserva": reservation.codigo_reserva,
+                "estado": reservation.estado,
+                "fecha_compra": reservation.fecha_compra,
+                "fecha_reserva": reservation.fecha_reserva,
+                "cantidad_personas": reservation.cantidad_personas,
+                "total_reserva": reservation.total_reserva,
+                "subtotal_sin_iva": base,
+                "iva": iva,
+                "descuento_cupon": reservation.descuento_cupon,
+                "fecha_cancelacion": reservation.fecha_cancelacion,
+                "penalidad_cancelacion": reservation.penalidad_cancelacion,
+                "reembolso": reservation.reembolso,
+                "vence_pago": reservation.vence_pago,
+                "vencida": self.is_expired_cancellation(reservation),
+            },
+            "viajero": {
+                "id_usuario": user.id_usuario if user else None,
+                "nombre": user.nombre if user else None,
+                "email": user.email if user else None,
+                "foto_url": getattr(user, "foto_url", None) if user else None,
+                "identificacion": client.identificacion if client else None,
+                "fecha_nacimiento": client.fecha_nacimiento if client else None,
+            },
+            "acompanantes": [
+                {"nombre": item.nombre, "documento": item.documento, "fecha_nacimiento": item.fecha_nacimiento}
+                for item in companions
+            ],
+            "paquete": {
+                "id_paquete_turistico": package.id_paquete_turistico,
+                "nombre": package.nombre,
+                "estado": package.estado,
+            } if package else None,
+            "pago": {
+                "id_pago": payment.id_pago,
+                "referencia_pago": payment.referencia_pago,
+                "metodo_pago": payment.metodo_pago,
+                "valor": payment.valor,
+                "estado_pago": payment.estado_pago,
+                "fecha_pago": payment.fecha_pago,
+            } if payment else None,
+            "ordenes": [self.provider_orders.serialize(order) for order in orders],
+        }
+
     def list_reservations(self, current_user: UserModel):
         self._ensure_admin(current_user)
 
-        return self.reservation_repository.list_reservations()
+        return self._with_deadlines(self.reservation_repository.list_reservations())
 
     def _cancel_by_admin(self, reservation: ReservationModel):
         """

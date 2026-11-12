@@ -6,10 +6,12 @@ from app.repositories.client_repository import ClientRepository
 from app.repositories.city_repository import CityRepository
 from app.schemas.client_schema import ClientCreate
 
-from app.core.constants import( 
-    ADMIN_ROLE_ID, 
+from app.core import clock
+from app.core.constants import(
+    ADMIN_ROLE_ID,
     CLIENT_ROLE_ID,
-    EMAIL_VERIFICATION_VERIFIED
+    EMAIL_VERIFICATION_VERIFIED,
+    MIN_CLIENT_AGE
 )
 
 class ClientService:
@@ -45,6 +47,14 @@ class ClientService:
         if city is None:
             raise ValueError("La ciudad no existe")
 
+    def _ensure_adult(self, fecha_nacimiento):
+        """El titular de la cuenta de viajero debe ser mayor de edad (18 años cumplidos hoy)."""
+        today = clock.today()
+        if fecha_nacimiento > today:
+            raise ValueError("La fecha de nacimiento no puede ser futura")
+        if clock.age_on(fecha_nacimiento, today) < MIN_CLIENT_AGE:
+            raise ValueError(f"Debes ser mayor de {MIN_CLIENT_AGE} años para crear tu carnet de viajero")
+
     def _ensure_user_is_client(self, user: UserModel):
         if user.rol_id != CLIENT_ROLE_ID:
             raise PermissionError("Solo los usuarios cliente pueden crear perfil de cliente")
@@ -74,9 +84,10 @@ class ClientService:
         self._ensure_user_is_client(current_user)
         self._ensure_user_email_verified(current_user)
         self._ensure_user_has_no_client_profile(current_user.id_usuario)
+        self._ensure_adult(client_data.fecha_nacimiento)
         self._ensure_identification_available(client_data.identificacion)
         self._ensure_city_exist(client_data.ciudad_id)
-        
+
         client = ClientModel(
             usuario_id = current_user.id_usuario,
             identificacion = client_data.identificacion,

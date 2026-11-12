@@ -5,6 +5,10 @@ import IconButton from '../../../components/IconButton/IconButton';
 import Icon from '../../../components/Icon/Icon';
 import Toast from '../../../components/Toast/Toast';
 import { useAdminAction } from '../adminShared';
+import NumberField, { numberError } from '../../../components/NumberField/NumberField';
+
+const LATITUDE = { min: -90, max: 90 };
+const LONGITUDE = { min: -180, max: 180 };
 
 const EMPTY_FORM = { nombre: '', departamento: '', pais: 'Colombia', latitud: '', longitud: '' };
 
@@ -103,6 +107,11 @@ function CitiesSection() {
   const packageCount = (id) => packages.filter((item) => item.ciudad_id === id).length;
   const withoutCoords = cities.filter((city) => city.latitud === null || city.longitud === null).length;
 
+  const coordsInvalid = Boolean(
+    numberError(form.latitud ?? '', LATITUDE, { optional: true, decimals: true })
+    || numberError(form.longitud ?? '', LONGITUDE, { optional: true, decimals: true })
+  );
+
   return (
     <>
       <div className="admin-header">
@@ -147,14 +156,26 @@ function CitiesSection() {
           ) : (
             <>
               <div className="admin-coords">
-                <div className="field">
-                  <label htmlFor="city-lat">Latitud</label>
-                  <input id="city-lat" type="number" step="0.000001" min="-90" max="90" value={form.latitud} onChange={update('latitud')} placeholder="6.244203" />
-                </div>
-                <div className="field">
-                  <label htmlFor="city-lng">Longitud</label>
-                  <input id="city-lng" type="number" step="0.000001" min="-180" max="180" value={form.longitud} onChange={update('longitud')} placeholder="-75.581212" />
-                </div>
+                <NumberField
+                  id="city-lat"
+                  label="Latitud"
+                  placeholder="6.244203"
+                  value={form.latitud ?? ''}
+                  onChange={update('latitud')}
+                  range={LATITUDE}
+                  optional
+                  decimals
+                />
+                <NumberField
+                  id="city-lng"
+                  label="Longitud"
+                  placeholder="-75.581212"
+                  value={form.longitud ?? ''}
+                  onChange={update('longitud')}
+                  range={LONGITUDE}
+                  optional
+                  decimals
+                />
               </div>
               <p className="field-hint">
                 {editing
@@ -172,7 +193,7 @@ function CitiesSection() {
             {editing && (
               <button type="button" className="btn btn-secondary" onClick={cancelEdit} disabled={busy}>Cancelar</button>
             )}
-            <button type="submit" className="btn btn-primary" disabled={busy}>
+            <button type="submit" className="btn btn-primary" disabled={busy || coordsInvalid}>
               {busy ? (editing ? 'Guardando...' : 'Agregando y ubicando...') : editing ? 'Guardar cambios' : 'Agregar ciudad'}
             </button>
           </div>

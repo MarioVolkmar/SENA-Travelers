@@ -9,11 +9,14 @@ import IconButton from '../../../components/IconButton/IconButton';
 import { downloadFile, openFile } from '../../../utils/download';
 import { formatCurrency, formatDate, getErrorMessage } from '../../../utils/format';
 import { matches, RESERVATION_STATUSES, useAdminAction } from '../adminShared';
+import ReservationAdminView from './ReservationAdminView';
 
 import Select from '../../../components/Select/Select';
 const FILTERS = [{ key: '', label: 'Todas' }, ...RESERVATION_STATUSES.map((estado) => ({ key: estado, label: estado }))];
 
-function ReservationsSection({ onDataChanged }) {
+function ReservationsSection({ onDataChanged, goTo, searchParams }) {
+  // Ficha de la reserva dentro de la consola: ?seccion=reservas&reserva=<id>
+  const selectedId = Number(searchParams?.get('reserva')) || null;
   const [reservations, setReservations] = useState(null);
   const [packages, setPackages] = useState({});
   const [query, setQuery] = useState('');
@@ -77,6 +80,17 @@ function ReservationsSection({ onDataChanged }) {
       onDataChanged();
     }
   };
+
+  if (selectedId) {
+    return (
+      <ReservationAdminView
+        key={selectedId}
+        reservationId={selectedId}
+        goTo={goTo}
+        onBack={() => goTo('reservas')}
+      />
+    );
+  }
 
   if (!reservations) return <p className="page-status">Cargando reservas...</p>;
 
@@ -142,7 +156,15 @@ function ReservationsSection({ onDataChanged }) {
             <tbody>
               {rows.map((reservation) => (
                 <tr key={reservation.id_reserva}>
-                  <td className="admin-strong">{reservation.codigo_reserva}</td>
+                  <td>
+                    <button
+                      type="button"
+                      className="link-button admin-strong"
+                      onClick={() => goTo('reservas', { reserva: reservation.id_reserva })}
+                    >
+                      {reservation.codigo_reserva}
+                    </button>
+                  </td>
                   <td>{packages[reservation.id_paquete_turistico] || `#${reservation.id_paquete_turistico}`}</td>
                   <td className="admin-muted">{formatDate(reservation.fecha_reserva)}</td>
                   <td>{reservation.cantidad_personas}</td>

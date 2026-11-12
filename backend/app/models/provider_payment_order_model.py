@@ -26,6 +26,9 @@ class ProviderPaymentOrderModel(Base):
     fecha_pago = Column(DateTime, nullable=True)
     referencia_pago = Column(String(60), nullable=True)
     nota = Column(String(255), nullable=True)
+    # Imagen del comprobante de la transferencia (clave de S3) y aviso de plazo enviado a los admins
+    comprobante_key = Column(String(255), nullable=True)
+    recordatorio_enviado = Column(DateTime, nullable=True)
 
     detalles = relationship(
         "ProviderPaymentOrderItemModel",

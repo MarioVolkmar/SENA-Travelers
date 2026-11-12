@@ -1,6 +1,6 @@
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.core.security import get_current_user
@@ -8,13 +8,14 @@ from app.database.connection import get_db
 from app.models.user_model import UserModel
 from app.schemas.provider_payment_order_schema import (
     GenerateOrdersResponse,
+    PaymentScheduleResponse,
     ProviderPaymentOrderAnnul,
     ProviderPaymentOrderPay,
     ProviderPaymentOrderResponse,
     SettingsResponse,
     SettingsUpdate,
 )
-from app.services.provider_payment_order_service import ProviderPaymentOrderService
+from app.services.provider_payment_order_service import RECEIPT_MAX_BYTES, ProviderPaymentOrderService
 from app.services.setting_service import SettingService
 
 router = APIRouter(tags=["Provider Payments"])
@@ -72,6 +73,31 @@ def generate_missing_orders(
     try:
         created = ProviderPaymentOrderService(db).generate_missing(current_user)
         return {"ordenes_creadas": len(created)}
+    except (PermissionError, LookupError, ValueError) as error:
+        handle_errors(error)
+
+
+@router.get("/provider-payments/schedule", response_model=PaymentScheduleResponse)
+def payment_schedule(
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(get_current_user),
+):
+    """Día de pago configurado y la próxima fecha de pago (administradores y proveedores)."""
+    return ProviderPaymentOrderService(db).payment_schedule()
+
+
+@router.post("/provider-payments/{id_orden}/receipt", response_model=ProviderPaymentOrderResponse)
+async def upload_receipt(
+    id_orden: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(get_current_user),
+):
+    """Adjunta la imagen del comprobante de la transferencia (JPG, PNG o WEBP, máximo 5 MB)."""
+    data = await file.read(RECEIPT_MAX_BYTES + 1)
+    try:
+        service = ProviderPaymentOrderService(db)
+        return service.serialize(service.upload_receipt(id_orden, data, current_user))
     except (PermissionError, LookupError, ValueError) as error:
         handle_errors(error)
 

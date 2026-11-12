@@ -5,8 +5,11 @@ import { Paged } from '../../../components/Pagination/Pagination';
 import Icon from '../../../components/Icon/Icon';
 import { formatCurrency, formatDate } from '../../../utils/format';
 import { matches, PAYMENT_STATUS_LABELS } from '../adminShared';
+import ReservationAdminView from './ReservationAdminView';
 
-function PaymentsSection() {
+function PaymentsSection({ goTo, searchParams }) {
+  // Detalle del pago dentro de la consola: ?seccion=pagos&pago=<id>
+  const selectedId = Number(searchParams?.get('pago')) || null;
   const [payments, setPayments] = useState(null);
   const [reservations, setReservations] = useState({});
   const [query, setQuery] = useState('');
@@ -21,6 +24,20 @@ function PaymentsSection() {
   }, []);
 
   if (!payments) return <p className="page-status">Cargando pagos...</p>;
+
+  const selected = selectedId && payments.find((payment) => payment.id_pago === selectedId);
+  if (selected) {
+    return (
+      <ReservationAdminView
+        key={selected.id_pago}
+        reservationId={selected.reserva_id}
+        goTo={goTo}
+        backLabel="Volver a pagos"
+        highlightPayment
+        onBack={() => goTo('pagos')}
+      />
+    );
+  }
 
   const visible = payments.filter(
     (payment) => !query
@@ -71,8 +88,25 @@ function PaymentsSection() {
 
                 return (
                   <tr key={payment.id_pago}>
-                    <td className="admin-strong">{payment.referencia_pago}</td>
-                    <td>{reservation?.codigo_reserva || `#${payment.reserva_id}`}</td>
+                    <td>
+                      <button
+                        type="button"
+                        className="link-button admin-strong"
+                        onClick={() => goTo('pagos', { pago: payment.id_pago })}
+                        title="Ver detalle del pago"
+                      >
+                        {payment.referencia_pago}
+                      </button>
+                    </td>
+                    <td>
+                      <button
+                        type="button"
+                        className="link-button"
+                        onClick={() => goTo('reservas', { reserva: payment.reserva_id })}
+                      >
+                        {reservation?.codigo_reserva || `#${payment.reserva_id}`}
+                      </button>
+                    </td>
                     <td>{payment.metodo_pago}</td>
                     <td className="admin-strong">{formatCurrency(payment.valor)}</td>
                     <td className="admin-muted">

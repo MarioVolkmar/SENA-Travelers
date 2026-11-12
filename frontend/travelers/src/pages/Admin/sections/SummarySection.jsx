@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import api from '../../../api/axiosConfig';
 import fallbackImage from '../../../assets/images/fondo.png';
 import { formatCurrency, formatDate, getErrorMessage } from '../../../utils/format';
+import { daysLabel, orderUrgency } from '../../../utils/paymentOrders';
 
 function greeting() {
   const hour = new Date().getHours();
@@ -18,13 +19,15 @@ function SummarySection({ user, goTo }) {
   useEffect(() => {
     const load = async () => {
       try {
-        const [reservations, payments, packages, providers, users, covers] = await Promise.all([
+        const [reservations, payments, packages, providers, users, covers, orders, schedule] = await Promise.all([
           api.get('/reservations/'),
           api.get('/payments/'),
           api.get('/packages/admin'),
           api.get('/providers/pending'),
           api.get('/users/'),
           api.get('/packages/images/covers').catch(() => ({ data: [] })),
+          api.get('/provider-payments/').catch(() => ({ data: [] })),
+          api.get('/provider-payments/schedule').catch(() => ({ data: null })),
         ]);
 
         setData({
@@ -34,6 +37,8 @@ function SummarySection({ user, goTo }) {
           pendingProviders: providers.data,
           users: users.data,
           covers: Object.fromEntries(covers.data.map((cover) => [cover.paquete_id, cover.imagen_url])),
+          orders: orders.data,
+          schedule: schedule.data,
         });
       } catch (requestError) {
         setError(getErrorMessage(requestError, 'No fue posible cargar el resumen.'));
@@ -60,6 +65,15 @@ function SummarySection({ user, goTo }) {
   const pendingReservations = data.reservations.filter((item) => item.estado === 'pendiente');
   const upcomingEnds = data.packages.filter((item) => item.estado === 'activo');
 
+  // Órdenes de pago a proveedores
+  const pendingOrders = data.orders.filter((order) => order.estado === 'pendiente');
+  const approvedOrders = data.orders.filter((order) => order.estado === 'aprobada');
+  const sumOrders = (list) => list.reduce((sum, order) => sum + Number(order.monto), 0);
+  const urgentOrders = [...pendingOrders, ...approvedOrders]
+    .map((order) => ({ order, urgency: orderUrgency(order) }))
+    .sort((a, b) => a.urgency.sortKey - b.urgency.sortKey);
+  const overdueOrders = urgentOrders.filter((item) => ['overdue', 'urgent'].includes(item.urgency.level)).length;
+
   const cards = [
     { label: 'Ventas netas', value: formatCurrency(approvedSales), highlight: true, section: 'pagos' },
     { label: 'Penalidades cobradas', value: formatCurrency(penalties), section: 'reservas' },
@@ -75,6 +89,17 @@ function SummarySection({ user, goTo }) {
       section: 'reservas',
     },
     { label: 'Paquetes activos', value: upcomingEnds.length, section: 'paquetes' },
+    {
+      label: `Órdenes por aprobar (${formatCurrency(sumOrders(pendingOrders))})`,
+      value: pendingOrders.length,
+      warning: overdueOrders > 0,
+      section: 'pagos-proveedores',
+    },
+    {
+      label: data.schedule ? `Por pagar el ${formatDate(data.schedule.proximo_pago)}` : 'Aprobadas por pagar',
+      value: formatCurrency(sumOrders(approvedOrders)),
+      section: 'pagos-proveedores',
+    },
     {
       label: 'Proveedores por aprobar',
       value: data.pendingProviders.length,
@@ -108,6 +133,28 @@ function SummarySection({ user, goTo }) {
           </button>
         ))}
       </div>
+
+      {urgentOrders.length > 0 && (
+        <div className="surface" style={{ marginBottom: 20 }}>
+          <div className="admin-panel-header">
+            <h2>Pagos a proveedores más próximos</h2>
+            <button type="button" className="btn btn-secondary btn-small" onClick={() => goTo('pagos-proveedores')}>
+              Gestionar
+            </button>
+          </div>
+          <ul className="admin-list">
+            {urgentOrders.slice(0, 5).map(({ order, urgency }) => (
+              <li key={order.id_orden} className={`order-urgency order-urgency-${urgency.level}`}>
+                <span className="admin-strong">{order.codigo} · {order.nombre_proveedor} · {formatCurrency(order.monto)}</span>
+                <span className="admin-muted">
+                  {urgency.label} <strong>{formatDate(urgency.date)}</strong> ({daysLabel(urgency.days)})
+                  {!order.tiene_datos_bancarios && ' · sin datos bancarios'}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {data.pendingProviders.length > 0 && (
         <div className="surface" style={{ marginBottom: 20 }}>
@@ -150,7 +197,15 @@ function SummarySection({ user, goTo }) {
             <tbody>
               {data.reservations.slice(0, 6).map((reservation) => (
                 <tr key={reservation.id_reserva}>
-                  <td className="admin-strong">{reservation.codigo_reserva}</td>
+                  <td>
+                    <button
+                      type="button"
+                      className="link-button admin-strong"
+                      onClick={() => goTo('reservas', { reserva: reservation.id_reserva })}
+                    >
+                      {reservation.codigo_reserva}
+                    </button>
+                  </td>
                   <td>
                     <span className="admin-thumb-cell">
                       <img

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import api from '../../../api/axiosConfig';
 import DatePicker from '../../../components/DatePicker/DatePicker';
+import { todayKey } from '../../../components/DatePicker/calendarUtils';
 import Icon from '../../../components/Icon/Icon';
 import Pagination, { usePagination } from '../../../components/Pagination/Pagination';
 import Select from '../../../components/Select/Select';
@@ -74,8 +75,8 @@ function AuditSection() {
               <option value="">Todos los módulos</option>
               {Object.entries(ENTITIES).map(([key, entity]) => <option key={key} value={key}>{entity.label}</option>)}
             </Select>
-            <DatePicker value={filters.desde} onChange={update('desde')} max={filters.hasta || undefined} placeholder="Desde" className="admin-select" aria-label="Desde" />
-            <DatePicker value={filters.hasta} onChange={update('hasta')} min={filters.desde || undefined} placeholder="Hasta" className="admin-select" aria-label="Hasta" />
+            <DatePicker value={filters.desde} onChange={update('desde')} max={filters.hasta || todayKey()} placeholder="Desde" className="admin-select" aria-label="Desde" />
+            <DatePicker value={filters.hasta} onChange={update('hasta')} min={filters.desde || undefined} max={todayKey()} placeholder="Hasta" className="admin-select" aria-label="Hasta" />
           </div>
         </div>
 

@@ -11,6 +11,7 @@ import { formatCurrency, formatDateRange } from '../../../utils/format';
 import { matches, useAdminAction } from '../adminShared';
 import ConfirmDeleteModal from './ConfirmDeleteModal';
 import PackageFormModal from './PackageFormModal';
+import PackageAdminView from './PackageAdminView';
 import PackageImagesModal from './PackageImagesModal';
 
 const FILTERS = [
@@ -19,8 +20,10 @@ const FILTERS = [
   { key: 'inactivo', label: 'Inactivos' },
 ];
 
-function PackagesSection({ searchParams, onDataChanged }) {
+function PackagesSection({ searchParams, goTo, onDataChanged }) {
+  const selectedId = Number(searchParams.get('paquete')) || null;
   const [packages, setPackages] = useState(null);
+  const [version, setVersion] = useState(0);
   const [cities, setCities] = useState([]);
   const [products, setProducts] = useState([]);
   const [covers, setCovers] = useState({});
@@ -44,6 +47,7 @@ function PackagesSection({ searchParams, onDataChanged }) {
     setCities(citiesResponse.data);
     setProducts(productsResponse.data);
     setCovers(Object.fromEntries(coversResponse.data.map((cover) => [cover.paquete_id, cover.imagen_url])));
+    setVersion((current) => current + 1);
   }, []);
 
   useEffect(() => {
@@ -76,6 +80,80 @@ function PackagesSection({ searchParams, onDataChanged }) {
   };
 
   if (!packages) return <p className="page-status">Cargando paquetes...</p>;
+
+  const openPackage = (id) => goTo('paquetes', { paquete: id });
+
+  const modals = (
+    <>
+      {editing && (
+        <PackageFormModal
+          packageId={editing === 'new' ? null : editing}
+          cities={cities}
+          products={products}
+          onClose={() => setEditing(null)}
+          onSaved={async (saved, wasEdit) => {
+            setEditing(null);
+            await run(() => load(), wasEdit ? `«${saved.nombre}» actualizado.` : `«${saved.nombre}» creado. Ahora agrégale fotos.`);
+            onDataChanged();
+            if (!wasEdit) setImagesFor(saved);
+          }}
+        />
+      )}
+
+      {deleting && (
+        <ConfirmDeleteModal
+          title="Eliminar paquete"
+          name={deleting.nombre}
+          consequences={[
+            'Solo se puede si no tiene reservas; si las tiene, desactívalo.',
+            'Se borran sus fotos registradas y su lista de productos (los productos no se borran).',
+            'Las fotos subidas desde la consola también se borran del bucket de S3.',
+          ]}
+          request={() => api.delete(`/packages/${deleting.id_paquete_turistico}`)}
+          onClose={() => setDeleting(null)}
+          onDeleted={async () => {
+            const name = deleting.nombre;
+            setDeleting(null);
+            await run(() => load(), `«${name}» eliminado.`);
+            onDataChanged();
+          }}
+        />
+      )}
+
+      {imagesFor && (
+        <PackageImagesModal
+          touristPackage={imagesFor}
+          onClose={() => setImagesFor(null)}
+          onChanged={() => load()}
+        />
+      )}
+      {dialog}
+    </>
+  );
+
+  // Ficha del paquete dentro de la consola (?seccion=paquetes&paquete=ID)
+  const selected = selectedId && packages.find((item) => item.id_paquete_turistico === selectedId);
+  if (selectedId) {
+    return (
+      <>
+        <Toast text={message} />
+        <Toast text={error} tone="error" />
+        <PackageAdminView
+          key={selectedId}
+          packageId={selectedId}
+          version={version}
+          cityName={cityName}
+          products={products}
+          busy={busy}
+          onBack={() => goTo('paquetes')}
+          onEdit={() => { clear(); setEditing(selectedId); }}
+          onImages={() => selected && setImagesFor(selected)}
+          onToggleStatus={() => selected && toggleStatus(selected)}
+        />
+        {modals}
+      </>
+    );
+  }
 
   const visible = packages
     .filter((item) => !filter || item.estado === filter)
@@ -143,14 +221,20 @@ function PackagesSection({ searchParams, onDataChanged }) {
                 return (
                   <tr key={touristPackage.id_paquete_turistico}>
                     <td>
-                      <span className="admin-thumb-cell">
+                      {/* La foto y el nombre abren la ficha del paquete dentro de la consola */}
+                      <button
+                        type="button"
+                        className="admin-thumb-cell admin-thumb-link"
+                        onClick={() => openPackage(touristPackage.id_paquete_turistico)}
+                        aria-label={`Ver el paquete ${touristPackage.nombre}`}
+                      >
                         <img src={covers[touristPackage.id_paquete_turistico] || fallbackImage} alt="" loading="lazy" />
                         <span>
                           <span className="admin-strong">{touristPackage.nombre}</span>
                           <br />
                           <span className="admin-muted">{cityName(touristPackage.ciudad_id)}</span>
                         </span>
-                      </span>
+                      </button>
                     </td>
                     <td className="admin-muted">{formatDateRange(touristPackage.fecha_inicio, touristPackage.fecha_fin)}</td>
                     <td>
@@ -161,6 +245,12 @@ function PackagesSection({ searchParams, onDataChanged }) {
                     <td><span className={`badge badge-${touristPackage.estado}`}>{touristPackage.estado}</span></td>
                     <td>
                       <div className="admin-actions">
+                        <IconButton
+                          icon="eye"
+                          label="Ver paquete"
+                          variant="info"
+                          onClick={() => openPackage(touristPackage.id_paquete_turistico)}
+                        />
                         <IconButton icon="edit" label="Editar" onClick={() => { clear(); setEditing(touristPackage.id_paquete_turistico); }} />
                         <IconButton icon="image" label="Fotos" variant="info" onClick={() => setImagesFor(touristPackage)} />
                         <IconButton
@@ -183,49 +273,7 @@ function PackagesSection({ searchParams, onDataChanged }) {
         </div>
       </div>
 
-      {editing && (
-        <PackageFormModal
-          packageId={editing === 'new' ? null : editing}
-          cities={cities}
-          products={products}
-          onClose={() => setEditing(null)}
-          onSaved={async (saved, wasEdit) => {
-            setEditing(null);
-            await run(() => load(), wasEdit ? `«${saved.nombre}» actualizado.` : `«${saved.nombre}» creado. Ahora agrégale fotos.`);
-            onDataChanged();
-            if (!wasEdit) setImagesFor(saved);
-          }}
-        />
-      )}
-
-      {deleting && (
-        <ConfirmDeleteModal
-          title="Eliminar paquete"
-          name={deleting.nombre}
-          consequences={[
-            'Solo se puede si no tiene reservas; si las tiene, desactívalo.',
-            'Se borran sus fotos registradas y su lista de productos (los productos no se borran).',
-            'Las fotos subidas desde la consola también se borran del bucket de S3.',
-          ]}
-          request={() => api.delete(`/packages/${deleting.id_paquete_turistico}`)}
-          onClose={() => setDeleting(null)}
-          onDeleted={async () => {
-            const name = deleting.nombre;
-            setDeleting(null);
-            await run(() => load(), `«${name}» eliminado.`);
-            onDataChanged();
-          }}
-        />
-      )}
-
-      {imagesFor && (
-        <PackageImagesModal
-          touristPackage={imagesFor}
-          onClose={() => setImagesFor(null)}
-          onChanged={() => load()}
-        />
-      )}
-      {dialog}
+      {modals}
     </>
   );
 }

@@ -19,7 +19,17 @@ from app.core.constants import (
     PRODUCT_STATUS_ACTIVE,
     TOURIST_PACKAGE_STATUS_ACTIVE,
     ALLOWED_TOURIST_PACKAGE_STATUS,
+    PACKAGE_DISCOUNT_MAX,
+    PACKAGE_PRICE_MAX,
+    PACKAGE_PRICE_MIN,
+    PACKAGE_PRODUCT_QUANTITY_MAX,
+    PACKAGE_SLOTS_MAX,
+    PACKAGE_SLOTS_MIN,
 )
+
+
+def pesos(value) -> str:
+    return f"${value:,.0f}".replace(",", ".")
 
 
 class TouristPackageService:
@@ -48,9 +58,36 @@ class TouristPackageService:
         if city is None:
             raise ValueError("La ciudad no existe")
 
-    def _ensure_valid_dates(self, fecha_inicio, fecha_fin):
+    def _ensure_valid_dates(self, fecha_inicio, fecha_fin, current_package=None):
+        """
+        - La fecha de fin no puede ser anterior a la de inicio.
+        - Las fechas no pueden quedar en el pasado. Al editar solo se revisan las que cambian:
+          un paquete que ya empezó se puede seguir editando sin tocar su fecha de inicio.
+        """
         if fecha_fin < fecha_inicio:
             raise ValueError("La fecha final no puede ser anterior a la fecha inicial")
+
+        today = clock.today()
+        start_changed = current_package is None or fecha_inicio != current_package.fecha_inicio
+        end_changed = current_package is None or fecha_fin != current_package.fecha_fin
+
+        if start_changed and fecha_inicio < today:
+            raise ValueError("La fecha de inicio no puede ser anterior a hoy")
+        if end_changed and fecha_fin < today:
+            raise ValueError("La fecha de fin no puede ser anterior a hoy")
+
+    def _ensure_reasonable_values(self, precio=None, cupo_max=None, descuento=None):
+        """Precio, cupo y descuento dentro de límites razonables (ver constants.py)."""
+        if precio is not None and not (PACKAGE_PRICE_MIN <= precio <= PACKAGE_PRICE_MAX):
+            raise ValueError(
+                f"El precio por persona debe estar entre {pesos(PACKAGE_PRICE_MIN)} y {pesos(PACKAGE_PRICE_MAX)}"
+            )
+        if cupo_max is not None and not (PACKAGE_SLOTS_MIN <= cupo_max <= PACKAGE_SLOTS_MAX):
+            raise ValueError(
+                f"El cupo máximo debe estar entre {PACKAGE_SLOTS_MIN} y {PACKAGE_SLOTS_MAX} personas"
+            )
+        if descuento is not None and not (0 <= descuento <= PACKAGE_DISCOUNT_MAX):
+            raise ValueError(f"El descuento debe estar entre 0 y {PACKAGE_DISCOUNT_MAX} %")
 
     def _ensure_valid_package_status(self, estado: str):
         if estado not in ALLOWED_TOURIST_PACKAGE_STATUS:
@@ -62,6 +99,11 @@ class TouristPackageService:
         for product_data in productos:
             if product_data.producto_id in product_ids:
                 raise ValueError("No puedes repetir productos dentro del mismo paquete")
+
+            if product_data.cantidad > PACKAGE_PRODUCT_QUANTITY_MAX:
+                raise ValueError(
+                    f"La cantidad de cada producto del paquete debe ser máximo {PACKAGE_PRODUCT_QUANTITY_MAX}"
+                )
 
             product_ids.add(product_data.producto_id)
 
@@ -80,6 +122,7 @@ class TouristPackageService:
     ):
         self._ensure_admin(current_user)
         self._ensure_city_exists(package_data.ciudad_id)
+        self._ensure_reasonable_values(package_data.precio, package_data.cupo_max, package_data.descuento)
         self._ensure_valid_dates(
             package_data.fecha_inicio,
             package_data.fecha_fin
@@ -160,6 +203,12 @@ class TouristPackageService:
         if productos is not None:
             self._ensure_products_are_valid(package_data.productos)
 
+        self._ensure_reasonable_values(
+            package_data_dict.get("precio"),
+            package_data_dict.get("cupo_max"),
+            package_data_dict.get("descuento"),
+        )
+
         if "ciudad_id" in package_data_dict:
             self._ensure_city_exists(package_data_dict["ciudad_id"])
             package_data_dict["ciudades_id_ciudad"] = package_data_dict.pop("ciudad_id")
@@ -173,7 +222,7 @@ class TouristPackageService:
             tourist_package.fecha_fin
         )
 
-        self._ensure_valid_dates(fecha_inicio, fecha_fin)
+        self._ensure_valid_dates(fecha_inicio, fecha_fin, current_package=tourist_package)
 
         if package_data_dict:
             tourist_package = self.tourist_package_repository.update_package(

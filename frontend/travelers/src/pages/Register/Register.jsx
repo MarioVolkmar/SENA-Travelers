@@ -42,6 +42,7 @@ function Register() {
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   const isProvider = accountType === 'proveedor';
 
@@ -205,13 +206,22 @@ function Register() {
               </div>
             </div>
 
-            <button type="submit" className="register-submit" disabled={loading}>
+            <label className="register-legal">
+              <input
+                type="checkbox"
+                checked={acceptedTerms}
+                onChange={(event) => setAcceptedTerms(event.target.checked)}
+                required
+              />
+              <span>
+                Acepto los <Link to="/terminos" target="_blank">términos y condiciones</Link> y
+                la <Link to="/privacidad" target="_blank">política de privacidad</Link>.
+              </span>
+            </label>
+
+            <button type="submit" className="register-submit" disabled={loading || !acceptedTerms}>
               {isProvider ? 'Continuar con los datos de la empresa' : loading ? 'Creando cuenta...' : 'Registrarme'}
             </button>
-            <p className="register-legal">
-              Al crear tu cuenta aceptas los <Link to="/terminos" target="_blank">términos y condiciones</Link> y
-              la <Link to="/privacidad" target="_blank">política de privacidad</Link>.
-            </p>
           </>
         )}
 

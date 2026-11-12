@@ -24,6 +24,8 @@ from app.routes.deletion_routes import router as deletion_router
 from app.routes.user_overview_routes import router as user_overview_router
 from app.routes.engagement_routes import router as engagement_router
 from app.routes.commerce_routes import router as commerce_router
+from app.routes.config_routes import router as config_router
+from app.routes.share_routes import router as share_router
 from app.core.audit_middleware import AuditMiddleware
 from app.services.reminder_service import reminder_loop, reminders_enabled
 
@@ -87,6 +89,8 @@ app.include_router(deletion_router)
 app.include_router(user_overview_router)
 app.include_router(engagement_router)
 app.include_router(commerce_router)
+app.include_router(config_router)
+app.include_router(share_router)
 
 
 @app.get("/")

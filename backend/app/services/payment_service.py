@@ -66,6 +66,11 @@ class PaymentService:
         if reservation.estado != RESERVATION_STATUS_PENDING:
             raise ValueError("Solo se pueden pagar reservas pendientes")
 
+    def _ensure_paid_in_time(self, reservation: ReservationModel):
+        from app.services.reservation_service import ReservationService  # import local: evita ciclos
+
+        ReservationService(self.db).ensure_payable_in_time(reservation)
+
     def _ensure_reservation_has_no_payment(self, reserva_id: int):
         existing_payment = self.payment_repository.find_by_reservation_id(
             reserva_id
@@ -102,6 +107,7 @@ class PaymentService:
         )
 
         self._ensure_reservation_is_pending(reservation)
+        self._ensure_paid_in_time(reservation)
 
         self._ensure_reservation_has_no_payment(
             reservation.id_reserva

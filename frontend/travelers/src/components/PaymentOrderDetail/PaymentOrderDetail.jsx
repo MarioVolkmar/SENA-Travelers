@@ -1,6 +1,7 @@
 import Modal from '../Modal/Modal';
 import { formatCurrency, formatDate } from '../../utils/format';
-import { ORDER_BADGE, ORDER_STATUS_LABELS } from '../../utils/paymentOrders';
+import { daysLabel, ORDER_BADGE, ORDER_STATUS_LABELS, orderUrgency } from '../../utils/paymentOrders';
+import { mediaUrl } from '../../api/axiosConfig';
 import { unitShortLabel } from '../../utils/productTypes';
 
 import './PaymentOrderDetail.css';
@@ -9,6 +10,8 @@ import '../../pages/Admin/AdminDashboard.css';
 
 /** Detalle de una orden de pago a proveedor: reserva, líneas y estado del pago. */
 function PaymentOrderDetail({ order, onClose, footer }) {
+  const urgency = orderUrgency(order);
+
   return (
     <Modal
       title={`Orden ${order.codigo}`}
@@ -21,7 +24,16 @@ function PaymentOrderDetail({ order, onClose, footer }) {
         <div><span>Estado</span><strong><span className={`badge badge-${ORDER_BADGE[order.estado]}`}>{ORDER_STATUS_LABELS[order.estado]}</span></strong></div>
         <div><span>Reserva</span><strong>{order.codigo_reserva}</strong></div>
         <div><span>Viaje</span><strong>{formatDate(order.fecha_viaje)} · {order.viajeros} viajeros</strong></div>
-        <div><span>Vence</span><strong>{formatDate(order.fecha_vencimiento)}</strong></div>
+        <div><span>Plazo de aprobación</span><strong>{formatDate(order.fecha_vencimiento)}</strong></div>
+        {order.fecha_pago_programada && (
+          <div><span>Pago programado</span><strong>{formatDate(order.fecha_pago_programada)}</strong></div>
+        )}
+        {urgency.date && (
+          <div>
+            <span>{urgency.label}</span>
+            <strong className={`order-urgency order-urgency-${urgency.level}`}>{formatDate(urgency.date)} · {daysLabel(urgency.days)}</strong>
+          </div>
+        )}
       </div>
 
       <div className="table-wrapper">
@@ -61,6 +73,15 @@ function PaymentOrderDetail({ order, onClose, footer }) {
             <p><strong>Pagada</strong> el {formatDate(order.fecha_pago)} · referencia <strong>{order.referencia_pago}</strong></p>
           )}
           {order.nota && <p><strong>Nota:</strong> {order.nota}</p>}
+        </div>
+      )}
+
+      {order.comprobante_url && (
+        <div className="order-receipt">
+          <p className="admin-strong">Comprobante de la transferencia</p>
+          <a href={mediaUrl(order.comprobante_url)} target="_blank" rel="noopener noreferrer">
+            <img src={mediaUrl(order.comprobante_url)} alt={`Comprobante de la orden ${order.codigo}`} />
+          </a>
         </div>
       )}
     </Modal>

@@ -12,7 +12,7 @@ import { useAuth } from '../../context/AuthContext';
 import { formatCurrency, formatDate, formatDateRange, getErrorMessage } from '../../utils/format';
 import { productTypeIcon, productTypeLabel, unitShortLabel, useProductTypes } from '../../utils/productTypes';
 import PaymentOrderDetail from '../../components/PaymentOrderDetail/PaymentOrderDetail';
-import { ORDER_BADGE, ORDER_STATUS_LABELS } from '../../utils/paymentOrders';
+import { daysLabel, ORDER_BADGE, ORDER_STATUS_LABELS, orderUrgency } from '../../utils/paymentOrders';
 import { useAdminAction } from '../Admin/adminShared';
 
 import '../Admin/AdminDashboard.css';
@@ -348,9 +348,11 @@ function PaymentsSection({ provider, goTo }) {
   const [orders, setOrders] = useState(null);
   const [filter, setFilter] = useState('');
   const [detail, setDetail] = useState(null);
+  const [schedule, setSchedule] = useState(null);
 
   useEffect(() => {
     api.get('/provider-payments/me').then((response) => setOrders(response.data)).catch(() => setOrders([]));
+    api.get('/provider-payments/schedule').then((response) => setSchedule(response.data)).catch(() => setSchedule(null));
   }, []);
 
   if (!orders) return <p className="page-status">Cargando tus pagos...</p>;
@@ -359,18 +361,21 @@ function PaymentsSection({ provider, goTo }) {
     .filter((order) => states.includes(order.estado))
     .reduce((sum, order) => sum + Number(order.monto), 0);
 
-  const nextDue = orders
-    .filter((order) => ['pendiente', 'aprobada'].includes(order.estado))
-    .sort((a, b) => a.fecha_vencimiento.localeCompare(b.fecha_vencimiento))[0];
-
-  const visible = orders.filter((order) => !filter || order.estado === filter);
+  // Las abiertas primero, de la fecha más cercana a la más lejana
+  const visible = orders
+    .filter((order) => !filter || order.estado === filter)
+    .sort((a, b) => orderUrgency(a).sortKey - orderUrgency(b).sortKey || b.id_orden - a.id_orden);
+  const approvedTotal = total(['aprobada']);
 
   return (
     <>
       <div className="admin-header">
         <div>
           <h1>Mis pagos</h1>
-          <p>Lo que Travelers te paga por los servicios de cada reserva confirmada.</p>
+          <p>
+            Lo que Travelers te paga por los servicios de cada reserva confirmada. Cada orden se aprueba después del viaje
+            {schedule && <> y las aprobadas se pagan el día {schedule.dia_pago} de cada mes</>}.
+          </p>
         </div>
       </div>
 
@@ -397,8 +402,9 @@ function PaymentsSection({ provider, goTo }) {
           <strong>{formatCurrency(total(['pagada']))}</strong>
         </div>
         <div className="admin-stat">
-          <span>Próximo vencimiento</span>
-          <strong>{nextDue ? formatDate(nextDue.fecha_vencimiento) : '—'}</strong>
+          <span>Próximo pago programado</span>
+          <strong>{schedule ? formatDate(schedule.proximo_pago) : '—'}</strong>
+          {approvedTotal > 0 && <small>Recibirás {formatCurrency(approvedTotal)} de órdenes aprobadas</small>}
         </div>
       </div>
 
@@ -426,13 +432,15 @@ function PaymentsSection({ provider, goTo }) {
                   <th>Paquete y viaje</th>
                   <th>Viajeros</th>
                   <th>Monto</th>
-                  <th>Vence</th>
+                  <th>Fecha</th>
                   <th>Estado</th>
                 </tr>
               </thead>
               <tbody>
-                {visible.map((order) => (
-                  <tr key={order.id_orden}>
+                {visible.map((order) => {
+                  const urgency = orderUrgency(order);
+                  return (
+                  <tr key={order.id_orden} className={`order-row order-row-${urgency.level}`}>
                     <td>
                       <button type="button" className="link-button admin-strong" onClick={() => setDetail(order)}>
                         {order.codigo}
@@ -445,12 +453,25 @@ function PaymentsSection({ provider, goTo }) {
                     </td>
                     <td>{order.viajeros}</td>
                     <td className="admin-strong">{formatCurrency(order.monto)}</td>
-                    <td className="admin-muted">
-                      {order.estado === 'pagada' ? `Pagada ${formatDate(order.fecha_pago)}` : formatDate(order.fecha_vencimiento)}
+                    <td>
+                      {order.estado === 'aprobada' ? (
+                        <span className="order-urgency order-urgency-normal">
+                          <span className="admin-muted">Se te paga el</span>
+                          <br />
+                          <strong>{formatDate(order.fecha_pago_programada)}</strong>
+                        </span>
+                      ) : order.estado === 'pendiente' ? (
+                        <span className="admin-muted">En revisión · aprobación hasta el {formatDate(order.fecha_vencimiento)}{urgency.days < 0 ? '' : ` (${daysLabel(urgency.days)})`}</span>
+                      ) : (
+                        <span className="admin-muted">
+                          {order.estado === 'pagada' ? `Pagada ${formatDate(order.fecha_pago)}` : '—'}
+                        </span>
+                      )}
                     </td>
                     <td><span className={`badge badge-${ORDER_BADGE[order.estado]}`}>{ORDER_STATUS_LABELS[order.estado]}</span></td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
             {visible.length === 0 && <p className="admin-empty">No hay órdenes con ese estado.</p>}

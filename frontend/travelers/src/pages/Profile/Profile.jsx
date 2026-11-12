@@ -23,7 +23,7 @@ import './Profile.css';
 
 import Select from '../../components/Select/Select';
 import DatePicker from '../../components/DatePicker/DatePicker';
-import { todayKey } from '../../components/DatePicker/calendarUtils';
+import { yearsBeforeKey } from '../../components/DatePicker/calendarUtils';
 import usePageTitle from '../../hooks/usePageTitle';
 const ROLE_NAMES = {
   [ROLE_ADMIN]: 'Administrador',
@@ -357,12 +357,14 @@ function Profile() {
                   <DatePicker
                     id="client-birth"
                     startView="years"
-                    max={todayKey()}
+                    min={yearsBeforeKey(110)}
+                    max={yearsBeforeKey(18)}
                     placeholder="Elige tu fecha"
                     value={clientForm.fecha_nacimiento}
                     onChange={(event) => setClientForm({ ...clientForm, fecha_nacimiento: event.target.value })}
                     required
                   />
+                  <span className="field-hint">Debes ser mayor de 18 años.</span>
                 </div>
                 <div className="field">
                   <label htmlFor="client-city">Ciudad</label>

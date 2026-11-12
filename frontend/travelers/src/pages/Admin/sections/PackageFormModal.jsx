@@ -4,13 +4,16 @@ import api from '../../../api/axiosConfig';
 import Icon from '../../../components/Icon/Icon';
 import Modal from '../../../components/Modal/Modal';
 import { formatCurrency, getErrorMessage } from '../../../utils/format';
+import { LIMITS, useLimits } from '../../../utils/limits';
 import { productTypeLabel, useProductTypes } from '../../../utils/productTypes';
 import { matches } from '../adminShared';
 import { EMPTY_INCLUDES } from '../../../utils/packageIncludes';
 import IncludesPicker from './IncludesPicker';
+import NumberField, { numberError } from '../../../components/NumberField/NumberField';
 
 import Select from '../../../components/Select/Select';
 import DatePicker from '../../../components/DatePicker/DatePicker';
+import { laterKey, todayKey } from '../../../components/DatePicker/calendarUtils';
 const EMPTY_FORM = {
   nombre: '',
   descripcion: '',
@@ -26,6 +29,7 @@ const EMPTY_FORM = {
  * Crear (packageId = null) o editar un paquete turístico con sus productos.
  */
 function PackageFormModal({ packageId, cities, products, onClose, onSaved }) {
+  useLimits(); // vuelve a pintar cuando llegan los límites del backend
   const isEdit = Boolean(packageId);
 
   const [form, setForm] = useState(EMPTY_FORM);
@@ -70,6 +74,16 @@ function PackageFormModal({ packageId, cities, products, onClose, onSaved }) {
 
   const update = (field) => (event) => setForm({ ...form, [field]: event.target.value });
 
+  // Si la nueva fecha de inicio queda después de la de fin, la de fin se borra para elegirla de nuevo
+  const updateStart = (event) => {
+    const start = event.target.value;
+    setForm((current) => ({
+      ...current,
+      fecha_inicio: start,
+      fecha_fin: current.fecha_fin && current.fecha_fin < start ? '' : current.fecha_fin,
+    }));
+  };
+
   const toggleProduct = (id) => {
     setSelected((current) => {
       const next = { ...current };
@@ -80,7 +94,8 @@ function PackageFormModal({ packageId, cities, products, onClose, onSaved }) {
   };
 
   const setQuantity = (id, value) => {
-    setSelected((current) => ({ ...current, [id]: Math.max(1, Number(value) || 1) }));
+    const { min, max } = LIMITS.packageProductQuantity;
+    setSelected((current) => ({ ...current, [id]: Math.min(max, Math.max(min, Number(value) || min)) }));
   };
 
   // Se muestran los productos activos y, al editar, también los inactivos que ya tenía
@@ -113,6 +128,14 @@ function PackageFormModal({ packageId, cities, products, onClose, onSaved }) {
     .reduce((sum, product) => sum + Number(product.costo) * selected[product.id_producto], 0);
 
   const finalPrice = Number(form.precio || 0) * (1 - Number(form.descuento || 0) / 100);
+  // Algún número fuera de su rango: el botón de guardar queda deshabilitado
+  const quantityInvalid = Object.values(selected).some((value) => numberError(value, LIMITS.packageProductQuantity));
+  const numbersInvalid = Boolean(
+    numberError(form.cupo_max, LIMITS.packageSlots)
+    || numberError(form.precio, LIMITS.packagePrice, { money: true })
+    || numberError(form.descuento, LIMITS.packageDiscount, { optional: true })
+    || quantityInvalid
+  );
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -172,7 +195,7 @@ function PackageFormModal({ packageId, cities, products, onClose, onSaved }) {
           <button type="button" className="btn btn-secondary" onClick={onClose} disabled={saving}>
             Cancelar
           </button>
-          <button type="submit" form="package-form" className="btn btn-primary" disabled={saving || loading}>
+          <button type="submit" form="package-form" className="btn btn-primary" disabled={saving || loading || numbersInvalid}>
             {saving ? 'Guardando...' : isEdit ? 'Guardar cambios' : 'Crear paquete'}
           </button>
         </>
@@ -216,39 +239,57 @@ function PackageFormModal({ packageId, cities, products, onClose, onSaved }) {
             </Select>
           </div>
 
-          <div className="field">
-            <label htmlFor="pkg-slots">Cupo máximo</label>
-            <input id="pkg-slots" type="number" min="1" placeholder="Número de personas" value={form.cupo_max} onChange={update('cupo_max')} required />
-          </div>
+          <NumberField
+            id="pkg-slots"
+            label="Cupo máximo"
+            placeholder="Número de personas"
+            value={form.cupo_max}
+            onChange={update('cupo_max')}
+            range={LIMITS.packageSlots}
+            unit=" personas"
+            hint={`Entre ${LIMITS.packageSlots.min} y ${LIMITS.packageSlots.max} personas.`}
+          />
 
           <div className="field">
             <label htmlFor="pkg-start">Fecha de inicio</label>
-            <DatePicker id="pkg-start" value={form.fecha_inicio} onChange={update('fecha_inicio')} required />
+            <DatePicker id="pkg-start" value={form.fecha_inicio} onChange={updateStart} min={todayKey()} required />
           </div>
 
           <div className="field">
             <label htmlFor="pkg-end">Fecha de fin</label>
             <DatePicker
               id="pkg-end"
-              min={form.fecha_inicio || undefined}
+              min={laterKey(form.fecha_inicio, todayKey())}
               value={form.fecha_fin}
               onChange={update('fecha_fin')}
               required
             />
           </div>
 
-          <div className="field">
-            <label htmlFor="pkg-price">Precio por persona</label>
-            <input id="pkg-price" type="number" min="1" step="1" placeholder="En pesos (COP)" value={form.precio} onChange={update('precio')} required />
-          </div>
+          <NumberField
+            id="pkg-price"
+            label="Precio por persona (IVA incluido)"
+            placeholder="En pesos (COP)"
+            value={form.precio}
+            onChange={update('precio')}
+            range={LIMITS.packagePrice}
+            money
+            hint={`Entre ${formatCurrency(LIMITS.packagePrice.min)} y ${formatCurrency(LIMITS.packagePrice.max)}.`}
+          />
 
-          <div className="field">
-            <label htmlFor="pkg-discount">Descuento (%)</label>
-            <input id="pkg-discount" type="number" min="0" max="90" value={form.descuento} onChange={update('descuento')} />
-            {Number(form.precio) > 0 && (
-              <span className="field-hint">Precio final: {formatCurrency(finalPrice)} por persona</span>
-            )}
-          </div>
+          <NumberField
+            id="pkg-discount"
+            label="Descuento (%)"
+            placeholder="0"
+            value={form.descuento}
+            onChange={update('descuento')}
+            range={LIMITS.packageDiscount}
+            optional
+            unit=" %"
+            hint={Number(form.precio) > 0
+              ? `Precio final: ${formatCurrency(finalPrice)} por persona. Entre ${LIMITS.packageDiscount.min} y ${LIMITS.packageDiscount.max} %.`
+              : `Entre ${LIMITS.packageDiscount.min} y ${LIMITS.packageDiscount.max} %.`}
+          />
 
           <div className="field field-full">
             <span className="field-label">
@@ -320,8 +361,11 @@ function PackageFormModal({ packageId, cities, products, onClose, onSaved }) {
                       {checked && (
                         <input
                           type="number"
-                          min="1"
+                          min={LIMITS.packageProductQuantity.min}
+                          max={LIMITS.packageProductQuantity.max}
                           value={selected[product.id_producto]}
+                          aria-invalid={Boolean(numberError(selected[product.id_producto], LIMITS.packageProductQuantity))}
+                          title={`Entre ${LIMITS.packageProductQuantity.min} y ${LIMITS.packageProductQuantity.max}`}
                           onChange={(event) => setQuantity(product.id_producto, event.target.value)}
                           onClick={(event) => event.preventDefault()}
                           aria-label={`Cantidad de ${product.nombre}`}

@@ -21,10 +21,22 @@ def auth(token):
     return {"Authorization": f"Bearer {token}"}
 
 
-def setup(client, db_session, email="viajero_op@example.com", identificacion="700100200"):
+BANK_DATA = {"banco": "Bancolombia", "tipo_cuenta": "ahorros", "numero_cuenta": "123-456789-01", "titular_cuenta": "Proveedor Reserva SAS"}
+
+
+def save_bank_data(client, provider_token):
+    provider = client.get("/providers/me", headers=auth(provider_token)).json()
+    response = client.patch(f"/providers/{provider['id_proveedor']}", json=BANK_DATA, headers=auth(provider_token))
+    assert response.status_code == 200, response.json()
+
+
+def setup(client, db_session, email="viajero_op@example.com", identificacion="700100200", with_bank=True):
     package, admin_token = create_package_ready_for_reservation(client, db_session)
     client_token, _ = create_client_with_token(client, db_session, email=email, identificacion=identificacion)
     provider_token = login_user(client, "proveedor_reserva@example.com")
+    # Sin datos bancarios no se pueden aprobar ni pagar órdenes
+    if with_bank:
+        save_bank_data(client, provider_token)
     return package, admin_token, client_token, provider_token
 
 
@@ -243,6 +255,8 @@ def test_payment_term_setting_changes_due_date(client, db_session):
         "dias_cancelacion_gratis": 7,
         "porcentaje_penalidad_cancelacion": 30,
         "dias_recordatorio_viaje": 3,
+        "horas_para_pagar": 24,
+        "dia_pago_proveedores": 15,
     }
 
     updated = client.patch("/settings/", json={"dias_pago_proveedores": 30}, headers=auth(admin_token))
@@ -365,7 +379,7 @@ def test_cancellation_policy_is_configurable(client, db_session):
     assert response.status_code == 200
 
     policy = client.get("/reservations/cancellation-policy").json()
-    assert policy == {"dias_sin_penalidad": 10, "porcentaje_penalidad": 50}
+    assert policy == {"dias_sin_penalidad": 10, "porcentaje_penalidad": 50, "horas_para_pagar": 24}
 
     assert client.patch("/settings/", json={"porcentaje_penalidad_cancelacion": 150}, headers=auth(admin_token)).status_code == 422
 

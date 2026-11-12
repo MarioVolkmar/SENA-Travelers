@@ -183,8 +183,10 @@ function ReportsSection() {
 
   const kpis = report?.kpis;
   const cards = useMemo(() => (kpis ? [
-    { label: 'Ventas netas', value: formatCurrency(kpis.ventas_netas), highlight: true },
-    { label: 'Margen (ventas − proveedores)', value: formatCurrency(kpis.margen) },
+    { label: 'Ventas netas (IVA incluido)', value: formatCurrency(kpis.ventas_netas), highlight: true },
+    { label: 'Ventas sin IVA', value: formatCurrency(kpis.ventas_sin_iva) },
+    { label: `IVA generado (${kpis.iva_porcentaje} %)`, value: formatCurrency(kpis.iva_generado) },
+    { label: 'Margen (ventas sin IVA − proveedores)', value: formatCurrency(kpis.margen) },
     { label: 'Reservas', value: kpis.reservas },
     { label: 'Viajeros', value: kpis.viajeros },
     { label: 'Ticket promedio', value: formatCurrency(kpis.ticket_promedio) },
@@ -225,7 +227,7 @@ function ReportsSection() {
           <DatePicker
             value={range.desde}
             onChange={(event) => { setPreset(''); setRange((current) => ({ ...current, desde: event.target.value })); }}
-            max={range.hasta}
+            max={range.hasta && range.hasta < todayKey() ? range.hasta : todayKey()}
             className="admin-select"
             aria-label="Desde"
             required
@@ -235,6 +237,7 @@ function ReportsSection() {
             value={range.hasta}
             onChange={(event) => { setPreset(''); setRange((current) => ({ ...current, hasta: event.target.value })); }}
             min={range.desde}
+            max={todayKey()}
             className="admin-select"
             aria-label="Hasta"
             required

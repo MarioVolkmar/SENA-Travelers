@@ -89,3 +89,14 @@
   pointer-events: none;
   z-index: 5;
 }
+
+/* El último ícono de una fila de acciones muestra su texto alineado a la derecha:
+   centrado se salía del borde de la tabla y aparecía una barra de desplazamiento */
+.admin-actions .action-icon:last-child[data-tip]:hover::after,
+.admin-actions .action-icon:last-child[data-tip]:focus-visible::after,
+.provider-product-actions .action-icon:last-child[data-tip]:hover::after,
+.provider-product-actions .action-icon:last-child[data-tip]:focus-visible::after {
+  left: auto;
+  right: 0;
+  transform: none;
+}

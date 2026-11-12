@@ -17,7 +17,7 @@ from app.services.setting_service import SettingService
 
 logger = logging.getLogger(__name__)
 
-CHECK_EVERY_SECONDS = 60 * 60  # una vez por hora
+CHECK_EVERY_SECONDS = 15 * 60  # cada 15 minutos (los recordatorios nunca se envían dos veces)
 
 
 class ReminderService:
@@ -84,7 +84,13 @@ class ReminderService:
 
 
 async def reminder_loop(session_factory):
-    """Tarea de fondo: revisa cada hora si hay recordatorios por enviar."""
+    """
+    Tarea de fondo: cada 15 minutos envía los recordatorios de viaje que toquen
+    y cancela las reservas pendientes cuyo plazo de pago ya venció.
+    """
+    from app.services.provider_payment_order_service import ProviderPaymentOrderService  # imports locales: evitan ciclos
+    from app.services.reservation_service import ReservationService
+
     while True:
         try:
             db = session_factory()
@@ -96,6 +102,28 @@ async def reminder_loop(session_factory):
                 db.close()
         except Exception:
             logger.exception("Falló el envío automático de recordatorios")
+
+        try:
+            db = session_factory()
+            try:
+                reminded = ProviderPaymentOrderService(db).remind_due_approvals()
+                if reminded:
+                    logger.info("Órdenes de pago por vencer avisadas: %s", reminded)
+            finally:
+                db.close()
+        except Exception:
+            logger.exception("Falló el aviso de órdenes de pago por vencer")
+
+        try:
+            db = session_factory()
+            try:
+                expired = ReservationService(db).expire_unpaid_reservations()
+                if expired:
+                    logger.info("Reservas vencidas por falta de pago: %s", expired)
+            finally:
+                db.close()
+        except Exception:
+            logger.exception("Falló la cancelación automática de reservas vencidas")
         await asyncio.sleep(CHECK_EVERY_SECONDS)
 
 

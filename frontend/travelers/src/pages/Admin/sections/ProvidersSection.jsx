@@ -9,6 +9,8 @@ import IconButton from '../../../components/IconButton/IconButton';
 import { formatDate } from '../../../utils/format';
 import { matches, useAdminAction } from '../adminShared';
 import ConfirmDeleteModal from './ConfirmDeleteModal';
+import UserProfileView from './UserProfileView';
+import Avatar from '../../../components/Avatar/Avatar';
 
 const FILTERS = [
   { key: '', label: 'Todos' },
@@ -17,8 +19,12 @@ const FILTERS = [
   { key: 'rechazado', label: 'Rechazados' },
 ];
 
-function ProvidersSection({ onDataChanged }) {
+function ProvidersSection({ onDataChanged, goTo, searchParams, user: currentUser }) {
+  // Ficha del proveedor dentro de la consola: ?seccion=proveedores&ficha=<id usuario>&pestana=productos|ordenes
+  const fileUserId = Number(searchParams?.get('ficha')) || null;
+  const fileTab = searchParams?.get('pestana') || 'resumen';
   const [providers, setProviders] = useState(null);
+  const [users, setUsers] = useState({});
   const [cities, setCities] = useState([]);
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState('');
@@ -27,7 +33,13 @@ function ProvidersSection({ onDataChanged }) {
   const { confirm, dialog } = useConfirm();
 
   const load = useCallback(async () => {
-    const [providersResponse, citiesResponse] = await Promise.all([api.get('/providers/'), api.get('/cities/')]);
+    const [providersResponse, citiesResponse, usersResponse] = await Promise.all([
+      api.get('/providers/'),
+      api.get('/cities/'),
+      api.get('/users/').catch(() => ({ data: [] })),
+    ]);
+    // Nombre y foto de la cuenta de cada proveedor, para el avatar
+    setUsers(Object.fromEntries(usersResponse.data.map((item) => [item.id_usuario, item])));
 
     // Los pendientes primero
     const order = { pendiente: 0, aprobado: 1, rechazado: 2 };
@@ -64,6 +76,25 @@ function ProvidersSection({ onDataChanged }) {
       onDataChanged();
     }
   };
+
+  const openFile = (provider, tab) => goTo('proveedores', {
+    ficha: provider.usuario_id,
+    ...(tab ? { pestana: tab } : {}),
+  });
+
+  if (fileUserId) {
+    return (
+      <UserProfileView
+        key={`${fileUserId}-${fileTab}`}
+        userId={fileUserId}
+        currentUser={currentUser}
+        goTo={goTo}
+        backLabel="Volver a proveedores"
+        initialTab={fileTab}
+        onBack={() => goTo('proveedores')}
+      />
+    );
+  }
 
   if (!providers) return <p className="page-status">Cargando proveedores...</p>;
 
@@ -128,9 +159,20 @@ function ProvidersSection({ onDataChanged }) {
               {rows.map((provider) => (
                 <tr key={provider.id_proveedor}>
                   <td>
-                    <span className="admin-strong">{provider.nombre_empresa}</span>
-                    <br />
-                    <span className="admin-muted">{cityName(provider.ciudad_id)}</span>
+                    {/* Avatar y nombre abren la ficha del proveedor */}
+                    <button
+                      type="button"
+                      className="admin-thumb-cell admin-thumb-link"
+                      onClick={() => openFile(provider)}
+                      aria-label={`Ver la ficha de ${provider.nombre_empresa}`}
+                    >
+                      <Avatar user={users[provider.usuario_id] || { nombre: provider.nombre_empresa }} size={40} />
+                      <span>
+                        <span className="admin-strong">{provider.nombre_empresa}</span>
+                        <br />
+                        <span className="admin-muted">{cityName(provider.ciudad_id)}</span>
+                      </span>
+                    </button>
                   </td>
                   <td>{provider.rut}</td>
                   <td className="admin-muted">{provider.telefono} · {provider.direccion}</td>
@@ -140,6 +182,25 @@ function ProvidersSection({ onDataChanged }) {
                   </td>
                   <td>
                     <div className="admin-actions">
+                      <IconButton
+                        icon="eye"
+                        label="Ver ficha"
+                        variant="info"
+                        onClick={() => openFile(provider)}
+                      />
+                      <IconButton
+                        icon="box"
+                        label="Ver productos"
+                        hidden={provider.estado_verificacion !== 'aprobado'}
+                        onClick={() => openFile(provider, 'productos')}
+                      />
+                      <IconButton
+                        icon="dollar"
+                        label="Órdenes de pago"
+                        variant="primary"
+                        hidden={provider.estado_verificacion !== 'aprobado'}
+                        onClick={() => openFile(provider, 'ordenes')}
+                      />
                       <IconButton
                         icon="check"
                         label="Aprobar"

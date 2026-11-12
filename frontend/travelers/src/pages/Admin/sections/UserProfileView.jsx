@@ -11,6 +11,7 @@ import { productTypeLabel, useProductTypes } from '../../../utils/productTypes';
 import { PAYMENT_STATUS_LABELS, ROLE_NAMES } from '../adminShared';
 
 import Select from '../../../components/Select/Select';
+import PaymentOrderDetail from '../../../components/PaymentOrderDetail/PaymentOrderDetail';
 const EMAIL_STATUS = {
   enviado: { label: 'Enviado', badge: 'confirmada' },
   pendiente: { label: 'Pendiente', badge: 'pendiente' },
@@ -39,12 +40,40 @@ function Empty({ children }) {
   return <p className="admin-empty">{children}</p>;
 }
 
-function UserProfileView({ userId, currentUser, goTo, onBack, onResetPassword, onChangeRole, onToggleActive, busy }) {
+/**
+ * Ficha completa de un usuario. También es la ficha del proveedor (desde Proveedores):
+ * cambia el texto del botón de volver y puede abrir directo en Productos u Órdenes de pago.
+ * Las acciones de cuenta (rol, contraseña, activar) solo aparecen si se pasan sus funciones.
+ */
+function UserProfileView({
+  userId,
+  currentUser,
+  goTo,
+  onBack,
+  onResetPassword,
+  onChangeRole,
+  onToggleActive,
+  busy,
+  backLabel = 'Volver a usuarios',
+  initialTab = 'resumen',
+}) {
   const types = useProductTypes();
   const [data, setData] = useState(null);
   const [cities, setCities] = useState([]);
   const [error, setError] = useState('');
-  const [tab, setTab] = useState('resumen');
+  const [tab, setTab] = useState(initialTab);
+  const [orderDetail, setOrderDetail] = useState(null);
+  const [orderError, setOrderError] = useState('');
+
+  const openOrder = async (order) => {
+    setOrderError('');
+    try {
+      const response = await api.get(`/provider-payments/${order.id_orden}`);
+      setOrderDetail(response.data);
+    } catch (requestError) {
+      setOrderError(getErrorMessage(requestError, 'No fue posible abrir la orden.'));
+    }
+  };
   const [voucherError, setVoucherError] = useState('');
 
   const viewVoucher = async (reservation) => {
@@ -76,7 +105,7 @@ function UserProfileView({ userId, currentUser, goTo, onBack, onResetPassword, o
 
   const back = (
     <button type="button" className="btn btn-secondary btn-small user-file-back" onClick={onBack}>
-      <Icon name="arrowLeft" size={16} /> Volver a usuarios
+      <Icon name="arrowLeft" size={16} /> {backLabel}
     </button>
   );
 
@@ -103,7 +132,8 @@ function UserProfileView({ userId, currentUser, goTo, onBack, onResetPassword, o
     { key: 'resumen', label: 'Resumen' },
     { key: 'reservas', label: 'Reservas', count: reservas.length },
     { key: 'pagos', label: 'Pagos', count: pagos.length },
-    proveedor && { key: 'proveedor', label: 'Proveedor', count: productos.length },
+    proveedor && { key: 'productos', label: 'Productos', count: productos.length },
+    proveedor && { key: 'ordenes', label: 'Órdenes de pago', count: ordenes.length },
     { key: 'notificaciones', label: 'Correos', count: notificaciones.length },
   ].filter(Boolean);
 
@@ -135,6 +165,7 @@ function UserProfileView({ userId, currentUser, goTo, onBack, onResetPassword, o
           </div>
         </div>
 
+        {onChangeRole && (
         <div className="user-file-actions">
           <Select
             className="admin-select"
@@ -164,6 +195,7 @@ function UserProfileView({ userId, currentUser, goTo, onBack, onResetPassword, o
             </button>
           )}
         </div>
+        )}
       </header>
 
       <div className="admin-summary">
@@ -370,8 +402,7 @@ function UserProfileView({ userId, currentUser, goTo, onBack, onResetPassword, o
         </div>
       )}
 
-      {tab === 'proveedor' && proveedor && (
-        <>
+      {tab === 'productos' && proveedor && (
           <div className="surface">
             <h2 className="user-file-title"><Icon name="box" size={18} /> Productos ({productos.length})</h2>
             {productos.length === 0 ? <Empty>No ha creado productos.</Empty> : (
@@ -403,8 +434,16 @@ function UserProfileView({ userId, currentUser, goTo, onBack, onResetPassword, o
               </div>
             )}
           </div>
+      )}
 
-          <div className="surface user-file-spaced">
+      {tab === 'ordenes' && proveedor && (
+          <div className="surface">
+            {orderError && <div className="alert alert-error">{orderError}</div>}
+            {!proveedor.numero_cuenta && (
+              <div className="alert alert-error">
+                Aún no ha completado sus datos bancarios: no se le pueden aprobar ni pagar órdenes.
+              </div>
+            )}
             <div className="user-file-title-row">
               <h2 className="user-file-title"><Icon name="card" size={18} /> Órdenes de pago ({ordenes.length})</h2>
               <span className="admin-muted">Cobrado {formatCurrency(resumen.cobrado)} · por cobrar {formatCurrency(resumen.por_cobrar)}</span>
@@ -425,7 +464,9 @@ function UserProfileView({ userId, currentUser, goTo, onBack, onResetPassword, o
                     {ordenes.map((order) => (
                       <tr key={order.id_orden}>
                         <td>
-                          <span className="admin-strong">{order.codigo}</span>
+                          <button type="button" className="link-button admin-strong" onClick={() => openOrder(order)}>
+                            {order.codigo}
+                          </button>
                           <br />
                           <span className="admin-muted">{order.paquete} · {order.codigo_reserva}</span>
                         </td>
@@ -443,14 +484,15 @@ function UserProfileView({ userId, currentUser, goTo, onBack, onResetPassword, o
               <button
                 type="button"
                 className="btn btn-secondary btn-small user-file-spaced"
-                onClick={() => goTo('pagos-proveedores')}
+                onClick={() => goTo('pagos-proveedores', { proveedor: proveedor.id_proveedor })}
               >
-                Gestionar en Pagos a proveedores
+                Aprobar o pagar en Pagos a proveedores
               </button>
             )}
           </div>
-        </>
       )}
+
+      {orderDetail && <PaymentOrderDetail order={orderDetail} onClose={() => setOrderDetail(null)} />}
 
       {tab === 'notificaciones' && (
         <div className="surface">

@@ -11,15 +11,19 @@ import { formatCurrency } from '../../../utils/format';
 import { productTypeIcon, productTypeLabel, useProductTypes } from '../../../utils/productTypes';
 import { matches, useAdminAction } from '../adminShared';
 import ConfirmDeleteModal from './ConfirmDeleteModal';
+import ProductAdminView from './ProductAdminView';
 
 import Select from '../../../components/Select/Select';
-function ProductsSection() {
+function ProductsSection({ searchParams, goTo }) {
+  // Ficha del producto dentro de la consola: ?seccion=productos&producto=<id>
+  const selectedId = Number(searchParams?.get('producto')) || null;
   const types = useProductTypes();
   const [products, setProducts] = useState(null);
   const [cities, setCities] = useState([]);
   const [providers, setProviders] = useState([]);
   const [query, setQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
+  const [providerFilter, setProviderFilter] = useState(() => searchParams?.get('proveedor') || '');
   const [editing, setEditing] = useState(null); // 'new' | producto
   const [deleting, setDeleting] = useState(null);
   const { busy, message, error, run, clear } = useAdminAction();
@@ -65,8 +69,70 @@ function ProductsSection() {
 
   if (!products) return <p className="page-status">Cargando productos...</p>;
 
+  const openProduct = (product) => goTo('productos', { producto: product.id_producto });
+
+  const modals = (
+    <>
+      {deleting && (
+        <ConfirmDeleteModal
+          title="Eliminar producto"
+          name={`${deleting.nombre} · ${providerName(deleting.proveedor_id)}`}
+          consequences={[
+            'Solo se puede si no está incluido en ningún paquete ni en órdenes de pago.',
+            'Si está en uso, quítalo del paquete o desactívalo.',
+          ]}
+          request={() => api.delete(`/products/${deleting.id_producto}`)}
+          onClose={() => setDeleting(null)}
+          onDeleted={async () => {
+            const name = deleting.nombre;
+            setDeleting(null);
+            await run(() => load(), `«${name}» eliminado.`);
+          }}
+        />
+      )}
+
+      {editing && (
+        <ProductFormModal
+          product={editing === 'new' ? null : editing}
+          cities={cities}
+          types={types}
+          providers={providers}
+          onClose={() => setEditing(null)}
+          onSaved={async (saved, wasEdit) => {
+            setEditing(null);
+            await run(() => load(), `«${saved.nombre}» ${wasEdit ? 'actualizado' : 'creado'}.`);
+          }}
+        />
+      )}
+      {dialog}
+    </>
+  );
+
+  const selected = selectedId && products.find((product) => product.id_producto === selectedId);
+  if (selected) {
+    return (
+      <>
+        <Toast text={message} />
+        <Toast text={error} tone="error" />
+        <ProductAdminView
+          key={selected.id_producto}
+          product={selected}
+          cityName={cityName}
+          provider={providers.find((provider) => provider.id_proveedor === selected.proveedor_id)}
+          goTo={goTo}
+          busy={busy}
+          onBack={() => goTo('productos')}
+          onEdit={() => { clear(); setEditing(selected); }}
+          onToggleStatus={() => toggleStatus(selected)}
+        />
+        {modals}
+      </>
+    );
+  }
+
   const visible = products
     .filter((product) => !typeFilter || product.tipo_producto === typeFilter)
+    .filter((product) => !providerFilter || String(product.proveedor_id) === providerFilter)
     .filter(
       (product) => !query
         || matches(product.nombre, query)
@@ -114,6 +180,19 @@ function ProductsSection() {
               ))}
             </Select>
           </label>
+          <label className="admin-search" style={{ maxWidth: 240 }}>
+            <Icon name="building" size={16} />
+            <Select
+              value={providerFilter}
+              onChange={(event) => setProviderFilter(event.target.value)}
+              aria-label="Filtrar por proveedor"
+            >
+              <option value="">Todos los proveedores</option>
+              {providers.map((provider) => (
+                <option key={provider.id_proveedor} value={String(provider.id_proveedor)}>{provider.nombre_empresa}</option>
+              ))}
+            </Select>
+          </label>
         </div>
 
         <div className="table-wrapper">
@@ -133,9 +212,16 @@ function ProductsSection() {
               {rows.map((product) => (
                 <tr key={product.id_producto}>
                   <td>
-                    <span className="admin-strong">{product.nombre}</span>
-                    <br />
-                    <span className="admin-muted">{cityName(product.ciudad_id)}</span>
+                    <button
+                      type="button"
+                      className="admin-thumb-link link-cell"
+                      onClick={() => openProduct(product)}
+                      aria-label={`Ver el producto ${product.nombre}`}
+                    >
+                      <span className="admin-strong">{product.nombre}</span>
+                      <br />
+                      <span className="admin-muted">{cityName(product.ciudad_id)}</span>
+                    </button>
                   </td>
                   <td>
                     <span className="admin-thumb-cell">
@@ -148,6 +234,7 @@ function ProductsSection() {
                   <td><span className={`badge badge-${product.estado}`}>{product.estado}</span></td>
                   <td>
                     <div className="admin-actions">
+                      <IconButton icon="eye" label="Ver producto" variant="info" onClick={() => openProduct(product)} />
                       <IconButton icon="edit" label="Editar" onClick={() => { clear(); setEditing(product); }} />
                       <IconButton
                         icon={product.estado === 'activo' ? 'pause' : 'play'}
@@ -168,38 +255,7 @@ function ProductsSection() {
         </div>
       </div>
 
-      {deleting && (
-        <ConfirmDeleteModal
-          title="Eliminar producto"
-          name={`${deleting.nombre} · ${providerName(deleting.proveedor_id)}`}
-          consequences={[
-            'Solo se puede si no está incluido en ningún paquete ni en órdenes de pago.',
-            'Si está en uso, quítalo del paquete o desactívalo.',
-          ]}
-          request={() => api.delete(`/products/${deleting.id_producto}`)}
-          onClose={() => setDeleting(null)}
-          onDeleted={async () => {
-            const name = deleting.nombre;
-            setDeleting(null);
-            await run(() => load(), `«${name}» eliminado.`);
-          }}
-        />
-      )}
-
-      {editing && (
-        <ProductFormModal
-          product={editing === 'new' ? null : editing}
-          cities={cities}
-          types={types}
-          providers={providers}
-          onClose={() => setEditing(null)}
-          onSaved={async (saved, wasEdit) => {
-            setEditing(null);
-            await run(() => load(), `«${saved.nombre}» ${wasEdit ? 'actualizado' : 'creado'}.`);
-          }}
-        />
-      )}
-      {dialog}
+      {modals}
     </>
   );
 }

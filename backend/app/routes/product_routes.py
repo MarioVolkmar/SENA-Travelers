@@ -143,6 +143,21 @@ def get_product_by_id_admin(
         )
 
 
+@router.get("/admin/{id_producto}/packages")
+def list_packages_using_product(
+    id_producto: int,
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(get_current_user)
+):
+    """Paquetes que incluyen el producto, con la cantidad de cada uno (solo administrador)."""
+    try:
+        return ProductService(db).list_packages_using(id_producto, current_user)
+    except PermissionError as error:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(error))
+    except LookupError as error:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error))
+
+
 @router.get(
     "/city/{ciudad_id}",
     response_model=List[ProductResponse]

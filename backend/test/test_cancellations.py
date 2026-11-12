@@ -50,6 +50,7 @@ def test_cancellation_policy_is_public(client):
     assert client.get("/reservations/cancellation-policy").json() == {
         "dias_sin_penalidad": 7,
         "porcentaje_penalidad": 30,
+        "horas_para_pagar": 24,
     }
 
 

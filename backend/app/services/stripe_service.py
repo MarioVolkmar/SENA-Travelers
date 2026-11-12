@@ -20,11 +20,13 @@ import logging
 import os
 import time
 from decimal import Decimal
+from types import SimpleNamespace
 
 import requests
 from sqlalchemy.orm import Session
 
-from app.core.constants import ADMIN_ROLE_ID, RESERVATION_STATUS_PENDING
+from app.core.constants import ADMIN_ROLE_ID, IVA_PERCENT, RESERVATION_STATUS_PENDING
+from app.core.taxes import split_iva
 from app.models.client_model import ClientModel
 from app.models.reservation_model import ReservationModel
 from app.models.tourist_package_model import TouristPackageModel
@@ -67,6 +69,10 @@ def is_enabled() -> bool:
 
 def is_test_mode() -> bool:
     return "_test_" in secret_key()
+
+
+def pesos(value) -> str:
+    return f"${value:,.0f}".replace(",", ".")
 
 
 def frontend_url() -> str:
@@ -147,7 +153,25 @@ class StripeService:
             raise ValueError("Solo se pueden pagar reservas pendientes")
         if self.payments.find_by_reservation_id(reservation.id_reserva) is not None:
             raise ValueError("La reserva ya tiene un pago registrado")
+        self._reservations_service().ensure_payable_in_time(reservation)
         return reservation
+
+    def _reservations_service(self):
+        from app.services.reservation_service import ReservationService  # import local: evita ciclos
+
+        return ReservationService(self.db)
+
+    def _refund_late_payment(self, session: dict, reservation: ReservationModel):
+        """Devuelve completo un pago que llegó cuando la reserva ya no se podía confirmar."""
+        intent = session.get("payment_intent")
+        intent_id = intent.get("id") if isinstance(intent, dict) else intent
+        if not intent_id:
+            return False
+        try:
+            self.refund(SimpleNamespace(referencia_pago=intent_id), reservation.total_reserva, reservation.codigo_reserva)
+            return True
+        except ValueError:
+            return False
 
     def _package_name(self, reservation: ReservationModel) -> str:
         package = (
@@ -186,6 +210,7 @@ class StripeService:
             "line_items[0][price_data][product_data][name]": self._package_name(reservation),
             "line_items[0][price_data][product_data][description]": (
                 f"Reserva {reservation.codigo_reserva} · {people} {'persona' if people == 1 else 'personas'}"
+                f" · IVA ({IVA_PERCENT} %) incluido: {pesos(split_iva(reservation.total_reserva)[1])}"
             ),
             # Stripe reemplaza {CHECKOUT_SESSION_ID} por el id real al devolver al viajero
             "success_url": f"{frontend_url()}/reservations?stripe_session={{CHECKOUT_SESSION_ID}}",
@@ -221,8 +246,14 @@ class StripeService:
             raise ValueError("El valor pagado en Stripe no coincide con el total de la reserva")
 
         if reservation.estado != RESERVATION_STATUS_PENDING:
-            logger.warning("Stripe: pago para %s en estado %s", reservation.codigo_reserva, reservation.estado)
-            raise ValueError("La reserva ya no está pendiente; contacta a la agencia para revisar el pago")
+            # Caso típico: el plazo de pago venció mientras el viajero estaba en Stripe.
+            # Si aún hay cupo, la reserva se reactiva y el pago se registra; si no, se devuelve el dinero.
+            if not self._reservations_service().reactivate_expired(reservation):
+                logger.warning("Stripe: pago para %s en estado %s", reservation.codigo_reserva, reservation.estado)
+                if self._refund_late_payment(session, reservation):
+                    raise ValueError("La reserva ya no estaba disponible, así que devolvimos el pago completo a tu medio de pago")
+                raise ValueError("La reserva ya no está pendiente; contacta a la agencia para revisar el pago")
+            logger.info("Stripe: %s se reactivó al llegar su pago después del plazo", reservation.codigo_reserva)
 
         intent = session.get("payment_intent")
         method_type = None

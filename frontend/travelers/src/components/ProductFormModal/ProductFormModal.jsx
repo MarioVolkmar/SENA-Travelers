@@ -1,10 +1,12 @@
 import { useState } from 'react';
 
 import api from '../../api/axiosConfig';
-import { getErrorMessage } from '../../utils/format';
+import { formatCurrency, getErrorMessage } from '../../utils/format';
+import { LIMITS, useLimits } from '../../utils/limits';
 import { productTypeIcon, unitShortLabel, useProductUnits } from '../../utils/productTypes';
 import Icon from '../Icon/Icon';
 import Modal from '../Modal/Modal';
+import NumberField, { numberError } from '../NumberField/NumberField';
 
 import './ProductFormModal.css';
 
@@ -17,6 +19,7 @@ import '../../pages/Admin/AdminDashboard.css';
  * - Panel del proveedor: recibe `fixedProviderId` y el producto siempre es suyo.
  */
 function ProductFormModal({ product, cities, types, providers = [], fixedProviderId, onClose, onSaved }) {
+  useLimits(); // vuelve a pintar cuando llegan los límites del backend
   const isEdit = Boolean(product);
   const units = useProductUnits();
   const [form, setForm] = useState({
@@ -82,6 +85,8 @@ function ProductFormModal({ product, cities, types, providers = [], fixedProvide
     }
   };
 
+  const costInvalid = Boolean(numberError(form.costo, LIMITS.productCost, { money: true }));
+
   return (
     <Modal
       title={isEdit ? 'Editar producto' : 'Nuevo producto'}
@@ -91,7 +96,7 @@ function ProductFormModal({ product, cities, types, providers = [], fixedProvide
       footer={(
         <>
           <button type="button" className="btn btn-secondary" onClick={onClose} disabled={saving}>Cancelar</button>
-          <button type="submit" form="product-form" className="btn btn-primary" disabled={saving}>
+          <button type="submit" form="product-form" className="btn btn-primary" disabled={saving || costInvalid}>
             {saving ? 'Guardando...' : isEdit ? 'Guardar cambios' : 'Crear producto'}
           </button>
         </>
@@ -164,15 +169,17 @@ function ProductFormModal({ product, cities, types, providers = [], fixedProvide
           </Select>
         </div>
 
-        <div className="field">
-          <label htmlFor="prod-cost">Costo (COP) {unitShortLabel(form.unidad_cobro)}</label>
-          <input id="prod-cost" type="number" min="1" step="1" value={form.costo} onChange={update('costo')} required />
-          <span className="field-hint">
-            {form.unidad_cobro === 'servicio'
-              ? 'Se paga una vez por reserva, sin importar cuántos viajeros.'
-              : 'Se multiplica por los viajeros (y por las noches o días incluidos).'}
-          </span>
-        </div>
+        <NumberField
+          id="prod-cost"
+          label={`Costo (COP) ${unitShortLabel(form.unidad_cobro)}`}
+          value={form.costo}
+          onChange={update('costo')}
+          range={LIMITS.productCost}
+          money
+          hint={`${form.unidad_cobro === 'servicio'
+            ? 'Se paga una vez por reserva, sin importar cuántos viajeros.'
+            : 'Se multiplica por los viajeros (y por las noches o días incluidos).'} Entre ${formatCurrency(LIMITS.productCost.min)} y ${formatCurrency(LIMITS.productCost.max)}.`}
+        />
 
         <div className="field">
           <label htmlFor="prod-city">Ciudad donde se presta</label>

@@ -9,7 +9,16 @@ from app.core.constants import (
     COUPON_STATUS_INACTIVE,
     COUPON_TYPE_PERCENT,
     COUPON_TYPES,
+    COUPON_MIN_PURCHASE_MAX,
+    COUPON_PERCENT_MAX,
+    COUPON_USES_MAX,
+    COUPON_VALUE_MAX,
+    COUPON_VALUE_MIN,
 )
+
+
+def pesos(value) -> str:
+    return f"${value:,.0f}".replace(",", ".")
 from app.models.coupon_model import CouponModel
 from app.models.reservation_model import ReservationModel
 from app.models.tourist_package_model import TouristPackageModel
@@ -46,17 +55,36 @@ class CouponService:
     # ---------------------------------------------------------------
 
     @staticmethod
-    def _validate_fields(data: dict):
+    def _validate_fields(data: dict, current=None):
+        """
+        Valores razonables y fechas coherentes. Al editar (`current`), las fechas solo se
+        revisan contra hoy si cambian: un cupón que ya empezó se puede editar sin tocar su inicio.
+        """
         tipo = data.get("tipo")
         valor = data.get("valor")
         if tipo is not None and tipo not in COUPON_TYPES:
             raise ValueError("Tipo de cupón no válido")
-        if tipo == COUPON_TYPE_PERCENT and valor is not None and not (0 < Decimal(valor) <= 100):
-            raise ValueError("El porcentaje debe estar entre 1 y 100")
         if valor is not None and Decimal(valor) <= 0:
             raise ValueError("El valor del descuento debe ser mayor a cero")
-        if data.get("fecha_inicio") and data.get("fecha_fin") and data["fecha_fin"] < data["fecha_inicio"]:
+        if tipo == COUPON_TYPE_PERCENT and valor is not None and Decimal(valor) > COUPON_PERCENT_MAX:
+            raise ValueError(f"El porcentaje debe estar entre 1 y {COUPON_PERCENT_MAX}")
+        if tipo != COUPON_TYPE_PERCENT and valor is not None and Decimal(valor) > COUPON_VALUE_MAX:
+            raise ValueError(f"El valor del cupón debe ser máximo {pesos(COUPON_VALUE_MAX)}")
+        if tipo != COUPON_TYPE_PERCENT and valor is not None and Decimal(valor) < COUPON_VALUE_MIN:
+            raise ValueError(f"El valor del cupón debe ser mínimo {pesos(COUPON_VALUE_MIN)}")
+        if data.get("usos_maximos") is not None and data["usos_maximos"] > COUPON_USES_MAX:
+            raise ValueError(f"Los usos máximos deben ser como mucho {COUPON_USES_MAX:,}".replace(",", "."))
+        if data.get("monto_minimo") is not None and Decimal(data["monto_minimo"]) > COUPON_MIN_PURCHASE_MAX:
+            raise ValueError(f"La compra mínima debe ser máximo {pesos(COUPON_MIN_PURCHASE_MAX)}")
+
+        inicio, fin = data.get("fecha_inicio"), data.get("fecha_fin")
+        if inicio and fin and fin < inicio:
             raise ValueError("La fecha de fin no puede ser anterior a la de inicio")
+        today = clock.today()
+        if inicio and (current is None or inicio != current.fecha_inicio) and inicio < today:
+            raise ValueError("La fecha de inicio del cupón no puede ser anterior a hoy")
+        if fin and (current is None or fin != current.fecha_fin) and fin < today:
+            raise ValueError("La fecha de fin del cupón no puede ser anterior a hoy")
 
     def discount_for(self, coupon: CouponModel, subtotal: Decimal) -> Decimal:
         """Descuento que da el cupón sobre un total. Lanza ValueError si no aplica."""
@@ -152,8 +180,10 @@ class CouponService:
             "valor": data.get("valor", coupon.valor),
             "fecha_inicio": data.get("fecha_inicio", coupon.fecha_inicio),
             "fecha_fin": data.get("fecha_fin", coupon.fecha_fin),
+            "usos_maximos": data.get("usos_maximos"),
+            "monto_minimo": data.get("monto_minimo"),
         }
-        self._validate_fields(merged)
+        self._validate_fields(merged, current=coupon)
 
         for key, value in data.items():
             setattr(coupon, key, value)

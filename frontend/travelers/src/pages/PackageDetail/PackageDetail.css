@@ -725,3 +725,16 @@
     gap: 18px;
   }
 }
+
+/* Desglose del IVA (incluido en el precio) */
+.booking-tax {
+  font-size: 0.85rem;
+  opacity: 0.85;
+}
+
+.booking-total small {
+  font-family: var(--font-body);
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--color-muted);
+}

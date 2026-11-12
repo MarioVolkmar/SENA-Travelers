@@ -91,6 +91,12 @@ class PendingReview(BaseModel):
     fecha_reserva: date
 
 
+class AuditChange(BaseModel):
+    campo: str
+    antes: str
+    despues: str
+
+
 class AuditEntry(BaseModel):
     id_registro: int
     usuario_id: Optional[int] = None
@@ -100,6 +106,7 @@ class AuditEntry(BaseModel):
     entidad_id: Optional[int] = None
     descripcion: str
     fecha: Optional[datetime] = None
+    cambios: List[AuditChange] = Field(default_factory=list)
 
     model_config = ConfigDict(from_attributes=True)
 

@@ -1643,3 +1643,69 @@ button.link-cell:hover .admin-strong {
   text-transform: none;
   color: var(--color-ink);
 }
+
+/* Bitácora: detalle de los campos que cambiaron */
+.audit-changes {
+  margin-top: 10px;
+}
+
+.audit-changes dl {
+  margin: 0;
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--color-surface-2);
+}
+
+.audit-change {
+  display: grid;
+  grid-template-columns: minmax(120px, 210px) 1fr;
+  gap: 12px;
+  align-items: baseline;
+  font-size: 0.85rem;
+}
+
+.audit-change dt {
+  color: var(--color-muted);
+  font-weight: 600;
+}
+
+.audit-change dd {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.audit-before {
+  color: var(--color-danger);
+  text-decoration: line-through;
+  text-decoration-color: rgba(252, 165, 165, 0.5);
+  overflow-wrap: anywhere;
+}
+
+.audit-after {
+  color: var(--color-success);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.audit-arrow {
+  color: var(--color-muted);
+  flex-shrink: 0;
+}
+
+.audit-more {
+  margin-top: 6px;
+  font-size: 0.82rem;
+}
+
+@media (max-width: 640px) {
+  .audit-change {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+}

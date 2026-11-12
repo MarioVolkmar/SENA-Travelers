@@ -1,4 +1,4 @@
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, String
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.sql import func
 
 from app.database.base import Base
@@ -15,4 +15,6 @@ class AuditLogModel(Base):
     entidad = Column(String(45), nullable=False, index=True)
     entidad_id = Column(Integer, nullable=True)
     descripcion = Column(String(255), nullable=False)
+    # Qué campos cambiaron: lista JSON de {campo, antes, despues} (vacía si no aplica)
+    detalle = Column(Text, nullable=True)
     fecha = Column(DateTime, nullable=False, server_default=func.now(), index=True)

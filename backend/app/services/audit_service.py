@@ -1,5 +1,7 @@
+import json
 from datetime import date, datetime, time
 
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.core.constants import ADMIN_ROLE_ID
@@ -13,7 +15,15 @@ class AuditService:
     def __init__(self, db: Session):
         self.db = db
 
-    def log(self, user: UserModel, accion: str, entidad: str, descripcion: str, entidad_id: int | None = None):
+    def log(
+        self,
+        user: UserModel,
+        accion: str,
+        entidad: str,
+        descripcion: str,
+        entidad_id: int | None = None,
+        cambios: list | None = None,
+    ):
         entry = AuditLogModel(
             usuario_id=user.id_usuario,
             usuario_nombre=user.nombre,
@@ -21,6 +31,7 @@ class AuditService:
             entidad=entidad,
             entidad_id=entidad_id,
             descripcion=descripcion[:255],
+            detalle=json.dumps(cambios, ensure_ascii=False) if cambios else None,
         )
         self.db.add(entry)
         self.db.commit()
@@ -49,6 +60,20 @@ class AuditService:
         if hasta:
             query = query.filter(AuditLogModel.fecha <= datetime.combine(hasta, time.max))
         if buscar:
-            query = query.filter(AuditLogModel.descripcion.like(f"%{buscar}%"))
+            pattern = f"%{buscar}%"
+            query = query.filter(or_(AuditLogModel.descripcion.like(pattern), AuditLogModel.detalle.like(pattern)))
 
-        return query.order_by(AuditLogModel.id_registro.desc()).limit(min(max(limit, 1), 2000)).all()
+        entries = query.order_by(AuditLogModel.id_registro.desc()).limit(min(max(limit, 1), 2000)).all()
+        for entry in entries:
+            entry.cambios = self.parse_changes(entry.detalle)
+        return entries
+
+    @staticmethod
+    def parse_changes(detalle: str | None) -> list:
+        if not detalle:
+            return []
+        try:
+            changes = json.loads(detalle)
+        except ValueError:
+            return []
+        return changes if isinstance(changes, list) else []

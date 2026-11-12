@@ -59,3 +59,4 @@ Thumbs.db
 # Build del pipeline (CI)
 dist-ci/
 frontend/travelers/dist-ci/
+frontend/travelers/dist-prod/

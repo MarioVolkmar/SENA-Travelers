@@ -386,19 +386,27 @@ Producción: **https://travelers-sena.duckdns.org** (Ubuntu 24.04, t3.micro, IP 
 | HTTPS | Let's Encrypt con Certbot; se renueva solo (`certbot.timer`) |
 | Dominio | DuckDNS (`travelers-sena`) apuntando a la IP elástica |
 
-**Actualizar el backend** (desde `backend/`):
+**Despliegue automático (GitHub Actions).** Cada push a `main` ejecuta `.github/workflows/ci-cd.yml`:
+
+1. **Pruebas del backend** contra un MySQL temporal y **build del frontend** (en paralelo).
+2. Si ambos pasan, **Desplegar en producción**: sube el código por SSH y ejecuta `deploy/remote_deploy.sh` en el servidor, que
+   guarda un respaldo en `/home/ubuntu/deploy-backups/` (las 5 copias más recientes), instala dependencias,
+   aplica las migraciones (`alembic upgrade head`), reinicia el servicio y publica el frontend.
+   Si el backend nuevo no responde, restaura la versión anterior automáticamente.
+3. Al final comprueba que el sitio sirva el build nuevo.
+
+También se puede lanzar a mano desde la pestaña *Actions → CI/CD → Run workflow*. La llave SSH está guardada en el
+secret `LLAVE_PIPELINE` del repositorio. El grupo de seguridad permite SSH (puerto 22) desde cualquier IP, porque los
+servidores de GitHub no tienen IP fija; solo se puede entrar con la llave.
+
+**Migraciones de la base (Alembic).** Los cambios de tablas viven en `backend/alembic/versions/` y el pipeline los aplica solos.
+Para crear uno después de cambiar un modelo (desde `backend/`, con el venv activo):
 
 ```bash
-tar --exclude=venv --exclude=__pycache__ --exclude=.env --exclude=test -czf - app scripts requirements.txt | ssh -i travelers-backend-key.pem ubuntu@52.72.14.150 "cd /opt/travelers/backend && tar -xzf - && venv/bin/pip install -q -r requirements.txt && sudo systemctl restart travelers"
+alembic revision --autogenerate -m "descripcion del cambio"   # revisar el archivo generado antes de subirlo
+alembic upgrade head                                          # aplicarla en la base local
 ```
 
-**Actualizar el frontend** (desde `frontend/travelers/`):
-
-```bash
-VITE_API_URL=https://travelers-sena.duckdns.org/api npx vite build --outDir dist-prod --emptyOutDir
-tar -czf - -C dist-prod . | ssh -i travelers-backend-key.pem ubuntu@52.72.14.150 "rm -rf /opt/travelers/frontend && mkdir -p /opt/travelers/frontend && tar -xzf - -C /opt/travelers/frontend"
-```
+Los scripts `database/migracion_00X.sql` son el historial anterior a Alembic (la base se crea con `script_BD_Travelers.sql` y esas migraciones).
 
 **Ver los registros del backend:** `sudo journalctl -u travelers -f`
-
-Si se cambian tablas, aplica la migración también en el servidor (`sudo mysql travelers_db < migracion_00X.sql`). El grupo de seguridad permite SSH solo desde el rango 190.7.115.0/24; si cambia tu proveedor de internet, ajusta esa regla.

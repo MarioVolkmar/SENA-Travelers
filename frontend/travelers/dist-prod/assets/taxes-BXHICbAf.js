@@ -1,1 +1,0 @@
-function e(e){let t=Math.round(Number(e||0)*100),n=Math.round(t/1.19);return{base:n/100,iva:(t-n)/100}}export{e as t};

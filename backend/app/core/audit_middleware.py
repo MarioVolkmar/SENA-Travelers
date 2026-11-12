@@ -12,6 +12,7 @@ import re
 from jose import JWTError, jwt
 
 from app.core import security
+from app.core.audit_changes import diff, snapshot
 from app.core.constants import ADMIN_ROLE_ID
 
 logger = logging.getLogger(__name__)
@@ -107,6 +108,7 @@ class AuditMiddleware:
             await self.app(scope, receive, send)
             return
 
+        before = self._snapshot_before(scope, rule)
         chunks = []
         status = {"code": 500}
 
@@ -125,11 +127,41 @@ class AuditMiddleware:
 
         if 200 <= status["code"] < 300:
             try:
-                self._record(scope, rule, b"".join(chunks))
+                self._record(scope, rule, b"".join(chunks), before)
             except Exception:  # la bitácora nunca debe romper la petición
                 logger.exception("No se pudo registrar la acción en la bitácora")
 
-    def _record(self, scope, rule, raw_body):
+    @staticmethod
+    def _entity_id(found):
+        return int(found[1]) if found.lastindex and found[1] and found[1].isdigit() else None
+
+    @staticmethod
+    def _session():
+        """Generador de sesión de la app (los tests reemplazan get_db por su base de pruebas)."""
+        from app.database.connection import get_db
+        from app.main import app as fastapi_app
+
+        provider = fastapi_app.dependency_overrides.get(get_db, get_db)
+        return provider()
+
+    def _snapshot_before(self, scope, rule):
+        """Foto del registro antes del cambio, para luego mostrar qué campos cambiaron."""
+        headers = dict(scope.get("headers") or [])
+        if not headers.get(b"authorization", b"").decode().lower().startswith("bearer "):
+            return None
+        _, entity, found, _ = rule
+        try:
+            generator = self._session()
+            db = next(generator)
+            try:
+                return snapshot(db, entity, self._entity_id(found))
+            finally:
+                generator.close()
+        except Exception:  # la bitácora nunca debe romper la petición
+            logger.exception("No se pudo tomar la foto previa para la bitácora")
+            return None
+
+    def _record(self, scope, rule, raw_body, before=None):
         headers = dict(scope.get("headers") or [])
         auth = headers.get(b"authorization", b"").decode()
         if not auth.lower().startswith("bearer "):
@@ -148,22 +180,28 @@ class AuditMiddleware:
             except ValueError:
                 body = {}
 
-        # Usa la misma sesión de base de datos que la app (los tests la reemplazan)
-        from app.database.connection import get_db
-        from app.main import app as fastapi_app
         from app.models.user_model import UserModel
         from app.services.audit_service import AuditService
 
-        provider = fastapi_app.dependency_overrides.get(get_db, get_db)
-        generator = provider()
+        generator = self._session()
         db = next(generator)
         try:
             user = self._find_user(db, UserModel, payload)
             if user is None or user.rol_id != ADMIN_ROLE_ID:
                 return
             action, entity, found, describe = rule
-            entity_id = int(found[1]) if found.lastindex and found[1] and found[1].isdigit() else None
-            AuditService(db).log(user, action, entity, describe(found, body), entity_id)
+            entity_id = self._entity_id(found)
+            after = snapshot(db, entity, entity_id) if before is not None else None
+            changes = diff(before, after)
+
+            description = describe(found, body)
+            if entity == "configuracion" and changes:
+                description = "Cambió la configuración"
+            name = (after or before or {}).get("name")
+            if name and entity_id is not None and str(name) not in description:
+                description = description.replace(f"#{entity_id}", f"#{entity_id} «{name}»", 1)
+
+            AuditService(db).log(user, action, entity, description, entity_id, changes)
         finally:
             generator.close()
 

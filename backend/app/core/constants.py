@@ -175,6 +175,16 @@ SETTING_CANCELLATION_PENALTY_PERCENT = "porcentaje_penalidad_cancelacion"
 SETTING_REMINDER_DAYS = "dias_recordatorio_viaje"
 SETTING_PAYMENT_HOURS = "horas_para_pagar"  # horas para pagar una reserva pendiente antes de que venza
 SETTING_PROVIDER_PAYMENT_DAY = "dia_pago_proveedores"  # día del mes en que se pagan las órdenes aprobadas
+
+# Nombres legibles de la configuración editable (se usan en el detalle de la bitácora)
+EDITABLE_SETTINGS_LABELS = {
+    SETTING_PROVIDER_PAYMENT_DAYS: "Plazo para aprobar órdenes (días después del viaje)",
+    SETTING_PROVIDER_PAYMENT_DAY: "Día de pago a proveedores",
+    SETTING_CANCELLATION_FREE_DAYS: "Días de cancelación gratis",
+    SETTING_CANCELLATION_PENALTY_PERCENT: "Penalidad por cancelación (%)",
+    SETTING_REMINDER_DAYS: "Días de anticipación del recordatorio de viaje",
+    SETTING_PAYMENT_HOURS: "Horas para pagar una reserva",
+}
 DEFAULT_SETTINGS = {
     SETTING_PROVIDER_PAYMENT_DAY: "15",
     SETTING_REMINDER_DAYS: "3",

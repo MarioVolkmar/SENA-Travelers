@@ -28,6 +28,38 @@ function formatDateTime(value) {
   });
 }
 
+const VISIBLE_CHANGES = 4;
+
+/** Campos que cambiaron en una acción: valor anterior → valor nuevo. */
+function ChangeList({ changes }) {
+  const [expanded, setExpanded] = useState(false);
+  if (!changes?.length) return null;
+  const shown = expanded ? changes : changes.slice(0, VISIBLE_CHANGES);
+  const hidden = changes.length - shown.length;
+
+  return (
+    <div className="audit-changes">
+      <dl>
+        {shown.map((change) => (
+          <div key={change.campo} className="audit-change">
+            <dt>{change.campo}</dt>
+            <dd>
+              <span className="audit-before" title={change.antes}>{change.antes}</span>
+              <Icon name="arrowRight" size={14} className="audit-arrow" />
+              <span className="audit-after" title={change.despues}>{change.despues}</span>
+            </dd>
+          </div>
+        ))}
+      </dl>
+      {(hidden > 0 || expanded) && changes.length > VISIBLE_CHANGES && (
+        <button type="button" className="link-button audit-more" onClick={() => setExpanded((value) => !value)}>
+          {expanded ? 'Ver menos' : `Ver ${hidden} ${hidden === 1 ? 'cambio más' : 'cambios más'}`}
+        </button>
+      )}
+    </div>
+  );
+}
+
 /** Bitácora: quién hizo qué cambio en la consola y cuándo. */
 function AuditSection() {
   const [entries, setEntries] = useState(null);
@@ -60,7 +92,7 @@ function AuditSection() {
       <div className="admin-header">
         <div>
           <h1>Bitácora</h1>
-          <p>Registro de los cambios que hacen los administradores: quién, qué y cuándo.</p>
+          <p>Registro de los cambios que hacen los administradores: quién, qué y cuándo, con el valor anterior y el nuevo de cada campo.</p>
         </div>
       </div>
 
@@ -68,7 +100,7 @@ function AuditSection() {
         <div className="admin-toolbar admin-audit-toolbar">
           <label className="admin-search">
             <Icon name="search" size={16} />
-            <input type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar en la descripción" aria-label="Buscar en la bitácora" />
+            <input type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar en la descripción o en los cambios" aria-label="Buscar en la bitácora" />
           </label>
           <div className="admin-audit-filters">
             <Select value={filters.entidad} onChange={update('entidad')} className="admin-select" aria-label="Filtrar por módulo">
@@ -98,6 +130,7 @@ function AuditSection() {
                     <p className="admin-muted">
                       {entry.usuario_nombre} · {entity.label} · {formatDateTime(entry.fecha)}
                     </p>
+                    <ChangeList changes={entry.cambios} />
                   </div>
                 </li>
               );

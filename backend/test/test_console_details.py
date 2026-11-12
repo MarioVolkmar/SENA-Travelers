@@ -143,3 +143,29 @@ def test_reservation_sheet_has_traveler_payment_and_orders(client, db_session):
     assert float(data["reserva"]["subtotal_sin_iva"]) + float(data["reserva"]["iva"]) == float(data["reserva"]["total_reserva"])
     assert len(data["ordenes"]) == 1
     assert client.get(f"/reservations/{reservation['id_reserva']}/detail", headers=auth(client_token)).status_code == 403
+
+
+# ------------------------------------------------------------------ bitácora con detalle
+
+def test_audit_log_shows_which_fields_changed(client, db_session):
+    package, admin_token, _, _ = setup(client, db_session)
+    package_id = package["id_paquete_turistico"]
+    old_slots = package["cupo_max"]
+
+    client.patch(f"/packages/{package_id}", json={"cupo_max": old_slots + 2, "descuento": 5}, headers=auth(admin_token))
+    client.patch("/settings/", json={"horas_para_pagar": 36}, headers=auth(admin_token))
+
+    entries = client.get("/audit/", headers=auth(admin_token)).json()
+    edit = next(entry for entry in entries if entry["descripcion"].startswith(f"Editó el paquete #{package_id}"))
+    assert package["nombre"] in edit["descripcion"]
+    changes = {change["campo"]: (change["antes"], change["despues"]) for change in edit["cambios"]}
+    assert changes["Cupos"] == (str(old_slots), str(old_slots + 2))
+    assert changes["Descuento (%)"][1] == "5"
+    assert "Nombre" not in changes  # solo aparecen los campos que cambiaron
+
+    settings = next(entry for entry in entries if entry["entidad"] == "configuracion")
+    assert settings["cambios"] == [{"campo": "Horas para pagar una reserva", "antes": "24", "despues": "36"}]
+
+    # La búsqueda también encuentra texto dentro de los cambios
+    found = client.get("/audit/", params={"buscar": "Horas para pagar"}, headers=auth(admin_token)).json()
+    assert [entry["entidad"] for entry in found] == ["configuracion"]

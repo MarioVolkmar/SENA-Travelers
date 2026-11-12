@@ -25,3 +25,5 @@ class ReservationModel(Base):
     cupon_id = Column(Integer, ForeignKey("cupones.id_cupon", ondelete="SET NULL"), nullable=True)
     descuento_cupon = Column(DECIMAL(10, 2), nullable=True)
     recordatorio_enviado = Column(DateTime, nullable=True)
+    # Aviso de "tu plazo para pagar está por vencer" (una sola vez por reserva)
+    recordatorio_pago = Column(DateTime, nullable=True)

@@ -1,0 +1,163 @@
+# Pipeline de Travelers
+#
+# En cada push o pull request a main:
+#   - backend:  corre todas las pruebas contra un MySQL temporal.
+#   - frontend: compila la aplicación (si no compila, falla).
+# Solo en push a main (o al lanzarlo a mano desde la pestaña Actions), y si lo anterior pasó:
+#   - deploy:   sube el backend y el frontend a la EC2, aplica las migraciones (Alembic),
+#               reinicia el servicio y comprueba que el sitio responda.
+#
+# Secret necesario (Settings → Secrets and variables → Actions):
+#   LLAVE_PIPELINE   contenido completo del archivo .pem para entrar al servidor
+
+name: CI/CD
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+      - "tallerya/**"
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: travelers-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  SITE_URL: https://travelers-sena.duckdns.org
+  EC2_HOST: 52.72.14.150
+
+jobs:
+  backend:
+    name: Pruebas del backend
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: ci-root
+          MYSQL_DATABASE: travelers_test
+        ports: ["3306:3306"]
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -pci-root"
+          --health-interval=5s --health-timeout=5s --health-retries=20
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      DB_HOST: 127.0.0.1
+      DB_PORT: "3306"
+      DB_USER: root
+      DB_PASSWORD: ci-root
+      DB_NAME: travelers_test
+      DB_TEST_NAME: travelers_test
+      BACK_KEY: clave-solo-para-ci
+      BACK_ALGORITHM: HS256
+      ACCESS_TOKEN_EXPIRE_MINUTES: "60"
+      VALIDATION_TOKEN_EXPIRE_MINUTES: "120"
+      PASSWORD_RESET_TOKEN_EXPIRE_MINUTES: "30"
+      FRONTEND_URL: http://localhost:5173
+      CORS_ORIGINS: http://localhost:5173
+      EMAILS_ENABLED: "false"
+      REMINDERS_ENABLED: "false"
+      GEOCODING_ENABLED: "false"
+      AWS_REGION: us-east-1
+      CLOUDFRONT_URL: https://cdn.example.com
+      GOOGLE_CLIENT_ID: ci-google-client-id
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - name: Instalar dependencias
+        run: pip install -r requirements.txt
+      - name: Revisar que las migraciones tengan una sola cabeza
+        run: test "$(alembic heads | wc -l)" -eq 1
+      - name: Pruebas
+        run: python -m pytest -q
+
+  frontend:
+    name: Build del frontend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend/travelers
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/travelers/package-lock.json
+      - run: npm ci
+      - name: Compilar para producción
+        run: npm run build -- --outDir dist-ci --emptyOutDir
+        env:
+          VITE_API_URL: ${{ env.SITE_URL }}/api
+      - uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: frontend/travelers/dist-ci
+          retention-days: 7
+
+  deploy:
+    name: Desplegar en producción
+    needs: [backend, frontend]
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment:
+      name: produccion
+      url: ${{ env.SITE_URL }}
+    concurrency:
+      group: travelers-deploy
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: frontend-dist
+          path: dist-ci
+
+      - name: Preparar la llave SSH
+        env:
+          LLAVE_PIPELINE: ${{ secrets.LLAVE_PIPELINE }}
+        run: |
+          test -n "$LLAVE_PIPELINE" || { echo "Falta el secret LLAVE_PIPELINE"; exit 1; }
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$LLAVE_PIPELINE" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          # Llave pública del servidor (evita conectarse a un servidor impostor)
+          echo "$EC2_HOST ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIP5sDOPmWI9E2RDd1W0CK94K0KxULCEoVS2WylOYta3E" > ~/.ssh/known_hosts
+
+      - name: Empaquetar
+        run: |
+          tar -czf backend.tgz -C backend --exclude=venv --exclude=__pycache__ --exclude=.env --exclude=test app alembic alembic.ini scripts requirements.txt
+          tar -czf frontend.tgz -C dist-ci .
+
+      - name: Subir y desplegar
+        run: |
+          SSH="ssh -i ~/.ssh/deploy_key -o BatchMode=yes ubuntu@$EC2_HOST"
+          $SSH "rm -rf /tmp/travelers-release && mkdir -p /tmp/travelers-release"
+          scp -i ~/.ssh/deploy_key -o BatchMode=yes backend.tgz frontend.tgz deploy/remote_deploy.sh "ubuntu@$EC2_HOST:/tmp/travelers-release/"
+          $SSH "bash /tmp/travelers-release/remote_deploy.sh"
+
+      - name: Prueba rápida del sitio
+        run: |
+          set -e
+          sleep 3
+          curl -fsS "$SITE_URL/api/config/limits" > /dev/null && echo "API: ok"
+          curl -fsS -o /dev/null "$SITE_URL/admin" && echo "Consola: ok"
+          expected=$(ls dist-ci/assets/index-*.js | xargs -n1 basename)
+          served=$(curl -fsS "$SITE_URL/" | grep -o 'assets/index-[^"]*\.js' | head -1 | xargs basename)
+          echo "Bundle esperado: $expected · servido: $served"
+          test "$expected" = "$served"
+
+      - name: Limpiar la llave
+        if: always()
+        run: rm -f ~/.ssh/deploy_key

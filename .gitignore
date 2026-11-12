@@ -55,3 +55,7 @@ pnpm-debug.log*
 # Archivos de sistema
 .DS_Store
 Thumbs.db
+
+# Build del pipeline (CI)
+dist-ci/
+frontend/travelers/dist-ci/

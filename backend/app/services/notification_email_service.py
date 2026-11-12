@@ -23,6 +23,7 @@ from app.core.constants import (
     NOTIFICATION_TYPE_PASSWORD_RESET,
     NOTIFICATION_TYPE_RESERVATION_CANCELLATION,
     NOTIFICATION_TYPE_TRIP_REMINDER,
+    NOTIFICATION_TYPE_PAYMENT_REMINDER,
     EMAIL_STATUS_SENT,
     EMAIL_STATUS_FAILED,
     EMAIL_STATUS_DISABLED
@@ -206,7 +207,7 @@ class NotificationEmailService:
                 f"Apartamos tu lugar en «{package_name}». Para confirmar la reserva y asegurar el cupo, realiza el pago desde Mis reservas.",
                 *(
                     [f"Tienes {payment_hours} {'hora' if payment_hours == 1 else 'horas'} para pagar. "
-                     "Si no se paga a tiempo, la reserva se cancela sola y el cupo queda libre para otros viajeros."]
+                     "Te avisaremos antes de que venza; si no se paga a tiempo, la reserva se cancela sola y el cupo queda libre para otros viajeros."]
                     if payment_hours else []
                 ),
             ],
@@ -357,6 +358,42 @@ class NotificationEmailService:
             ],
             button=("Crear nueva contraseña", reset_link),
             note="El enlace vence en 30 minutos. Si no lo pediste, ignora este mensaje: tu contraseña no cambiará.",
+        )
+
+    def create_payment_reminder_email(
+        self,
+        user: UserModel,
+        reservation: ReservationModel,
+        hours_left: int
+    ):
+        self._ensure_valid_user_for_notification(user)
+
+        package_name = self._package_name(reservation)
+        cuando = "menos de una hora" if hours_left < 1 else f"{hours_left} {'hora' if hours_left == 1 else 'horas'}"
+
+        return self._build_and_send(
+            user=user,
+            asunto=f"Tu reserva vence en {cuando} - Travelers",
+            tipo=NOTIFICATION_TYPE_PAYMENT_REMINDER,
+            reserva_id=reservation.id_reserva,
+            tone="warning",
+            title="Tu reserva está por vencer",
+            preheader=f"Paga tu reserva {reservation.codigo_reserva} para no perder el cupo.",
+            eyebrow="Recordatorio de pago",
+            greeting=f"Hola, {user.nombre}:",
+            paragraphs=[
+                f"Tu reserva de «{package_name}» aún no está pagada y el plazo vence en {cuando}.",
+                "Si no se paga a tiempo, se cancela sola y el cupo queda libre para otros viajeros.",
+            ],
+            details=[
+                ("Código de reserva", reservation.codigo_reserva),
+                ("Paquete", package_name),
+                ("Fecha del viaje", long_date(reservation.fecha_reserva)),
+                ("Viajeros", people_label(reservation.cantidad_personas)),
+                ("Total (IVA incluido)", money(reservation.total_reserva)),
+            ],
+            button=("Pagar mi reserva", f"{frontend_url()}/reservations"),
+            note="Si ya pagaste, ignora este mensaje.",
         )
 
     def create_trip_reminder_email(

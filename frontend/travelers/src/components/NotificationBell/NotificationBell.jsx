@@ -13,6 +13,7 @@ const TYPE_ICONS = {
   pago_aprobado: 'card',
   reserva_cancelada: 'close',
   recordatorio_viaje: 'calendar',
+  recordatorio_pago: 'clock',
   solicitud_proveedor: 'building',
   proveedor_verificado: 'building',
   orden_pago: 'card',

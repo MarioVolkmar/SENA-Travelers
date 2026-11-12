@@ -117,6 +117,17 @@ async def reminder_loop(session_factory):
         try:
             db = session_factory()
             try:
+                reminded = ReservationService(db).remind_unpaid_reservations()
+                if reminded:
+                    logger.info("Reservas avisadas por plazo de pago: %s", reminded)
+            finally:
+                db.close()
+        except Exception:
+            logger.exception("Falló el aviso de reservas por vencer")
+
+        try:
+            db = session_factory()
+            try:
                 expired = ReservationService(db).expire_unpaid_reservations()
                 if expired:
                     logger.info("Reservas vencidas por falta de pago: %s", expired)

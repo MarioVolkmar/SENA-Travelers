@@ -19,6 +19,7 @@ TONES = {
     "info": ACCENT,       # avisos generales
     "success": "#2fa36b", # pago aprobado
     "danger": "#d9534f",  # cancelación
+    "warning": "#e8961c", # plazo por vencer
 }
 
 

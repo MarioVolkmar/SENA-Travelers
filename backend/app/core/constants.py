@@ -78,6 +78,7 @@ NOTIFICATION_TYPE_PAYMENT_CONFIRMATION = "confirmacion_pago"
 NOTIFICATION_TYPE_PASSWORD_RESET = "recuperacion_password"
 NOTIFICATION_TYPE_RESERVATION_CANCELLATION = "cancelacion_reserva"
 NOTIFICATION_TYPE_TRIP_REMINDER = "recordatorio_viaje"
+NOTIFICATION_TYPE_PAYMENT_REMINDER = "recordatorio_pago"
 
 # Tourist package status
 TOURIST_PACKAGE_STATUS_ACTIVE = "activo"
@@ -195,6 +196,10 @@ SETTING_RANGES = {
 
 # Días antes del plazo de aprobación en que se avisa a los administradores de una orden pendiente
 ORDER_APPROVAL_REMINDER_DAYS = 2
+
+# Aviso al viajero antes de que venza el plazo para pagar su reserva:
+# 4 horas antes, o a la mitad del plazo si el plazo es más corto que 8 horas.
+PAYMENT_REMINDER_HOURS_BEFORE = 4
 # Comprobantes de pago a proveedores (imagen de la transferencia)
 RECEIPT_PREFIX = "comprobantes/"
 

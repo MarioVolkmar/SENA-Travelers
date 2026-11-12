@@ -28,6 +28,7 @@ from app.schemas.reservation_schema import (
 from app.core.constants import (
     ADMIN_ROLE_ID,
     MIN_COMPANION_AGE,
+    PAYMENT_REMINDER_HOURS_BEFORE,
     RESERVATION_STATUS_PENDING,
     RESERVATION_STATUS_CANCELLED,
     RESERVATION_STATUS_CONFIRMED,
@@ -358,6 +359,67 @@ class ReservationService:
             )
 
         return expired
+
+    @staticmethod
+    def payment_reminder_lead(hours: int) -> float:
+        """Cuántas horas antes del vencimiento se avisa: 4, o la mitad del plazo si es más corto."""
+        return min(PAYMENT_REMINDER_HOURS_BEFORE, hours / 2)
+
+    def remind_unpaid_reservations(self, now: datetime | None = None) -> int:
+        """
+        Avisa (correo y campana) a quien tiene una reserva pendiente cuyo plazo para pagar está por vencer.
+        Se envía una sola vez por reserva. Devuelve cuántos avisos se enviaron.
+        """
+        now = now or datetime.now()
+        hours = self.settings.payment_hours()
+        lead = self.payment_reminder_lead(hours)
+        db = self.reservation_repository.db
+        due = (
+            db.query(ReservationModel)
+            .filter(
+                ReservationModel.estado == RESERVATION_STATUS_PENDING,
+                ReservationModel.recordatorio_pago.is_(None),
+                ReservationModel.fecha_compra <= now - timedelta(hours=hours - lead),
+                ReservationModel.fecha_compra > now - timedelta(hours=hours),  # las ya vencidas no se avisan
+            )
+            .all()
+        )
+
+        reminded = 0
+        for reservation in due:
+            if self.payment_repository.find_by_reservation_id(reservation.id_reserva) is not None:
+                continue
+            reservation.recordatorio_pago = now
+            db.commit()
+            reminded += 1
+
+            left = self.payment_deadline(reservation, hours) - now
+            hours_left = int(left.total_seconds() // 3600)
+            cuando = "menos de una hora" if hours_left < 1 else f"{hours_left} {'hora' if hours_left == 1 else 'horas'}"
+
+            client = self.client_repository.find_by_id(reservation.cliente_id)
+            user = (
+                db.query(UserModel).filter(UserModel.id_usuario == client.usuario_id).first()
+                if client is not None
+                else None
+            )
+            if user is not None:
+                try:
+                    self.notification_email_service.create_payment_reminder_email(
+                        user=user, reservation=reservation, hours_left=hours_left
+                    )
+                except Exception:  # un correo que falla no detiene los demás avisos
+                    pass
+
+            self.app_notifications.notify_client(
+                reservation.cliente_id,
+                "recordatorio_pago",
+                f"Reserva {reservation.codigo_reserva} por vencer",
+                f"Te quedan {cuando} para pagarla. Si no, se cancela sola y el cupo queda libre.",
+                "/reservations",
+            )
+
+        return reminded
 
     def reactivate_expired(self, reservation: ReservationModel) -> bool:
         """

@@ -226,7 +226,8 @@ function SettingsSection() {
         <p className="settings-policy-summary">
           Una reserva pendiente se cancela sola si no se paga en
           {' '}<strong>{saved.horas_para_pagar} {saved.horas_para_pagar === 1 ? 'hora' : 'horas'}</strong>, y sus cupos quedan libres.
-          El viajero recibe un correo y un aviso en la campana. El sistema revisa cada 15 minutos.
+          Antes de vencer, el viajero recibe un recordatorio (4 horas antes, o a la mitad del plazo si es más corto),
+          y al cancelarse, un correo y un aviso en la campana. El sistema revisa cada 15 minutos.
         </p>
         {savePaymentHours.message && <div className="alert alert-success">{savePaymentHours.message}</div>}
         {savePaymentHours.error && <div className="alert alert-error">{savePaymentHours.error}</div>}

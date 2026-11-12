@@ -60,10 +60,11 @@ RULES = [
     ("PATCH", r"^/reservations/(\d+)/status$", "cambiar_estado", "reserva",
      lambda m, b: f"Cambió el estado de la reserva #{m[1]} a {_get(b, 'estado')}"),
 
-    ("POST", r"^/provider-payments/generate$", "generar", "orden_pago", lambda m, b: "Generó las órdenes de pago faltantes"),
     ("PATCH", r"^/provider-payments/(\d+)/approve$", "aprobar", "orden_pago", lambda m, b: f"Aprobó la orden de pago #{m[1]}"),
     ("PATCH", r"^/provider-payments/(\d+)/pay$", "pagar", "orden_pago",
      lambda m, b: f"Registró el pago de la orden #{m[1]} (ref. {_get(b, 'referencia_pago')})"),
+    ("POST", r"^/provider-payments/(\d+)/receipt$", "adjuntar_comprobante", "orden_pago",
+     lambda m, b: f"Adjuntó el comprobante de pago de la orden #{m[1]}"),
     ("PATCH", r"^/provider-payments/(\d+)/annul$", "anular", "orden_pago", lambda m, b: f"Anuló la orden de pago #{m[1]}"),
 
     ("PATCH", r"^/settings/?$", "configurar", "configuracion",

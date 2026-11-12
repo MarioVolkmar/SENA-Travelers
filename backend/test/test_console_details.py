@@ -86,6 +86,11 @@ def test_receipt_image_is_attached_to_paid_order(client, db_session, monkeypatch
     assert good.json()["comprobante_url"].startswith("https://cdn.test/comprobantes/")
     assert uploaded and uploaded[-1][1] == "image/png"
 
+    # Queda en la bitácora
+    entries = client.get("/audit/?entidad=orden_pago", headers=auth(admin_token)).json()
+    descriptions = [entry["descripcion"] for entry in entries]
+    assert any("Adjuntó el comprobante" in text for text in descriptions)
+
 
 # ------------------------------------------------------------------ aviso de plazo
 

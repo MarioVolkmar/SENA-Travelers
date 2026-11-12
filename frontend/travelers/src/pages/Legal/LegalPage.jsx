@@ -47,7 +47,7 @@ function Terms() {
       <h2>4. Reservas y pagos</h2>
       <ul>
         <li>Una reserva queda <strong>pendiente</strong> al crearla y se <strong>confirma</strong> cuando se registra el pago total.</li>
-        <li>Las reservas pendientes tienen un plazo para pagarse (se muestra en “Mis reservas”). Si vence sin pago, la reserva se cancela automáticamente, sin ningún cobro, y sus cupos quedan libres.</li>
+        <li>Las reservas pendientes tienen un plazo para pagarse (se muestra en “Mis reservas”). Antes de que venza te avisamos por correo y en la campana; si vence sin pago, la reserva se cancela automáticamente, sin ningún cobro, y sus cupos quedan libres.</li>
         <li>Con la reserva confirmada puedes descargar tu voucher, que incluye un código QR para verificar su autenticidad.</li>
         <li>Recibirás por correo la confirmación de la reserva y del pago.</li>
       </ul>

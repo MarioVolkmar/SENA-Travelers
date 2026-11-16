@@ -14,14 +14,21 @@ Uso (desde la carpeta backend):
     python -m scripts.optimize_package_images --dry-run  # solo muestra cuánto se ahorraría
 """
 import argparse
+import importlib
+import pkgutil
 from uuid import uuid4
 
 import requests
 
+import app.models
 from app.core import storage
 from app.core.images import InvalidImage, optimize_photo
 from app.database.connection import SessionLocal
 from app.models.tourist_package_image_model import TouristPackageImageModel
+
+# Todos los modelos deben estar cargados para que SQLAlchemy resuelva las relaciones al guardar
+for module in pkgutil.iter_modules(app.models.__path__):
+    importlib.import_module(f"app.models.{module.name}")
 
 
 def main(dry_run: bool):

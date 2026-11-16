@@ -30,8 +30,9 @@ export default function usePackageCatalog({ withAvailability = false } = {}) {
           ratingsResponse.data.map((item) => [item.paquete_id, item])
         );
 
+        // Portada grande (banner y carrusel) y pequeña (tarjetas): la pequeña pesa ~10 veces menos
         const covers = Object.fromEntries(
-          coversResponse.data.map((cover) => [cover.paquete_id, cover.imagen_url])
+          coversResponse.data.map((cover) => [cover.paquete_id, cover])
         );
         const cities = Object.fromEntries(
           citiesResponse.data.map((city) => [city.id_ciudad, city])
@@ -58,7 +59,9 @@ export default function usePackageCatalog({ withAvailability = false } = {}) {
         const packages = packagesResponse.data
           .map((item) => ({
             ...item,
-            cover: covers[item.id_paquete_turistico] || null,
+            cover: covers[item.id_paquete_turistico]?.imagen_url || null,
+            coverSmall: covers[item.id_paquete_turistico]?.imagen_url_sm
+              || covers[item.id_paquete_turistico]?.imagen_url || null,
             city: cities[item.ciudad_id] || null,
             availableSlots: availability[item.id_paquete_turistico],
             rating: ratings[item.id_paquete_turistico] || null,

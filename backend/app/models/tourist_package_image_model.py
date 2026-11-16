@@ -33,6 +33,12 @@ class TouristPackageImageModel(Base):
         nullable=False
     )
 
+    # Versión pequeña (tarjetas y miniaturas); vacía en las fotos que aún no se han optimizado
+    s3_key_sm = Column(
+        String(500),
+        nullable=True
+    )
+
     es_portada = Column(
         Boolean,
         nullable=False,

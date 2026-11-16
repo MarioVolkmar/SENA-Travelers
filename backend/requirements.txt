@@ -24,4 +24,5 @@ boto3
 
 # PDF (voucher y reportes) y Excel
 reportlab
+Pillow
 openpyxl

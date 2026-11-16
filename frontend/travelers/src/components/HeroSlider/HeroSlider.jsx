@@ -175,7 +175,7 @@ function HeroSlider({ packages, totalDestinations }) {
               onClick={() => goTo(position)}
               aria-label={`Ver ${item.nombre}`}
             >
-              <img src={item.cover || fallbackImage} alt="" loading="lazy" />
+              <img src={item.coverSmall || item.cover || fallbackImage} alt="" loading="lazy" decoding="async" />
               <span className="hero-card-text">
                 <small>{item.city?.nombre}</small>
                 <strong>{item.nombre}</strong>

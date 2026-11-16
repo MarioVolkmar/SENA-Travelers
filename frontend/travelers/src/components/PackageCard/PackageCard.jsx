@@ -36,9 +36,10 @@ function PackageCard({ touristPackage, variant = 'card' }) {
     <Link to={`/packages/${id}`} className={`package-card package-card-${variant}`}>
       <div className="package-card-media">
         <img
-          src={touristPackage.cover || fallbackImage}
+          src={touristPackage.coverSmall || touristPackage.cover || fallbackImage}
           alt={touristPackage.nombre}
           loading="lazy"
+          decoding="async"
           onError={(event) => { event.currentTarget.src = fallbackImage; }}
         />
 

@@ -42,7 +42,7 @@ function DestinationsMap({ packages }) {
       const entry = byCity.get(city.id_ciudad) || { city, count: 0, from: Infinity, cover: null };
       entry.count += 1;
       entry.from = Math.min(entry.from, finalPrice(item));
-      entry.cover = entry.cover || item.cover;
+      entry.cover = entry.cover || item.coverSmall || item.cover;
       byCity.set(city.id_ciudad, entry);
     });
     return [...byCity.values()].sort((a, b) => b.count - a.count || a.city.nombre.localeCompare(b.city.nombre));
@@ -142,7 +142,7 @@ function DestinationsMap({ packages }) {
       <aside className="destinations-map-panel">
         {selected ? (
           <div className="destinations-map-card">
-            {selected.cover && <img src={selected.cover} alt="" />}
+            {selected.cover && <img src={selected.cover} alt="" decoding="async" />}
             <div className="destinations-map-card-body">
               <p className="eyebrow">{selected.city.departamento}</p>
               <h3>{selected.city.nombre}</h3>

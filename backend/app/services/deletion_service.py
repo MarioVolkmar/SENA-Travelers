@@ -112,7 +112,11 @@ class DeletionService:
             .filter(TouristPackageImageModel.paquete_id == id_paquete)
             .all()
         )
-        uploaded_keys = [image.s3_key for image in images if UPLOADED_KEY_PATTERN.match(image.s3_key)]
+        uploaded_keys = [
+            key
+            for image in images if UPLOADED_KEY_PATTERN.match(image.s3_key)
+            for key in (image.s3_key, image.s3_key_sm) if key
+        ]
 
         for image in images:
             self.db.delete(image)

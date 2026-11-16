@@ -16,6 +16,19 @@ from test_reservations import (
 PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 64
 
 
+def real_photo(width=2400, height=1600):
+    """Foto real (PNG) para probar la reducción y compresión al subir."""
+    from io import BytesIO
+    from PIL import Image
+
+    output = BytesIO()
+    Image.new("RGB", (width, height), (40, 120, 200)).save(output, format="PNG")
+    return output.getvalue()
+
+
+PHOTO = real_photo()
+
+
 class FakeS3:
     def __init__(self):
         self.objects = {}
@@ -110,7 +123,7 @@ def test_package_update_can_change_data_and_products_together(client, db_session
 # Imágenes de paquetes subidas a S3 desde la consola
 # ---------------------------------------------------------------
 
-def upload_image(client, token, package_id, data=PNG, es_portada=False):
+def upload_image(client, token, package_id, data=PHOTO, es_portada=False):
     return client.post(
         f"/packages/{package_id}/images/upload",
         files={"file": ("foto.png", data, "image/png")},
@@ -130,7 +143,28 @@ def test_admin_uploads_package_image_to_s3(client, db_session, fake_s3):
     assert data["s3_key"].startswith(f"{package_id}/")
     assert data["es_portada"] is True
     assert data["imagen_url"] == f"https://cdn.travelers.test/{data['s3_key']}"
-    assert fake_s3.objects[data["s3_key"]] == PNG
+    # Se guarda reducida y comprimida en JPEG, con una miniatura aparte
+    assert data["s3_key"].endswith(".jpg")
+    small_key = data["s3_key"].replace(".jpg", "_sm.jpg")
+    assert data["imagen_url_sm"] == f"https://cdn.travelers.test/{small_key}"
+    assert set(fake_s3.objects) == {data["s3_key"], small_key}
+
+    from io import BytesIO
+    from PIL import Image
+    large = Image.open(BytesIO(fake_s3.objects[data["s3_key"]]))
+    small = Image.open(BytesIO(fake_s3.objects[small_key]))
+    assert large.format == "JPEG" and max(large.size) == 1600
+    assert max(small.size) == 800
+
+
+def test_upload_rejects_damaged_image(client, db_session, fake_s3):
+    package, admin_token = create_package_ready_for_reservation(client, db_session)
+
+    # Tiene la firma de PNG pero no es una imagen real
+    response = upload_image(client, admin_token, package["id_paquete_turistico"], data=PNG)
+
+    assert response.status_code == 400
+    assert fake_s3.objects == {}
 
 
 def test_client_cannot_upload_package_image(client, db_session, fake_s3):

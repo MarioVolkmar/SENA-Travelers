@@ -133,7 +133,7 @@ function PackageImagesModal({ touristPackage, onClose, onChanged }) {
           {images.map((image) => (
             <figure key={image.id_imagen} className={`admin-image ${image.es_portada ? 'cover' : ''}`}>
               {image.imagen_url ? (
-                <img src={image.imagen_url} alt="" loading="lazy" />
+                <img src={image.imagen_url_sm || image.imagen_url} alt="" loading="lazy" decoding="async" />
               ) : (
                 <div className="admin-image-missing">Sin CLOUDFRONT_URL</div>
               )}

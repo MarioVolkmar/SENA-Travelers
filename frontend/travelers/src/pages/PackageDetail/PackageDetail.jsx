@@ -522,9 +522,12 @@ function PackageDetail() {
             disabled={images.length === 0}
           >
             <img
-              src={image.imagen_url}
+              // La foto principal en tamaño grande; las del mosaico, en la versión pequeña
+              src={index === 0 ? image.imagen_url : (image.imagen_url_sm || image.imagen_url)}
               alt={index === 0 ? touristPackage.nombre : ''}
               loading={index === 0 ? 'eager' : 'lazy'}
+              fetchPriority={index === 0 ? 'high' : 'auto'}
+              decoding="async"
               onError={(event) => { event.currentTarget.src = fallbackImage; }}
             />
           </button>

@@ -240,7 +240,7 @@ function PackageAdminView({ packageId, version, cityName, products, onBack, onEd
                     aria-label={`Ver foto ${index + 1}`}
                     onClick={() => setActivePhoto(index)}
                   >
-                    <img src={image.imagen_url} alt="" loading="lazy" />
+                    <img src={image.imagen_url_sm || image.imagen_url} alt="" loading="lazy" decoding="async" />
                   </button>
                 ))}
               </div>

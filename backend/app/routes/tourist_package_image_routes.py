@@ -30,7 +30,8 @@ def build_image_response(image) -> TouristPackageImageResponse:
         s3_key=image.s3_key,
         es_portada=image.es_portada,
         orden=image.orden,
-        imagen_url=TouristPackageImageService.generate_image_url(image.s3_key)
+        imagen_url=TouristPackageImageService.generate_image_url(image.s3_key),
+        imagen_url_sm=TouristPackageImageService.generate_image_url(image.s3_key_sm or image.s3_key),
     )
 
 

@@ -1,6 +1,7 @@
 import pytest
 
 from app.core import storage
+from test_admin_console import real_photo
 from app.models.notification_email_model import NotificationEmailModel
 from app.models.user_model import UserModel
 
@@ -110,7 +111,7 @@ def test_admin_deletes_package_without_reservations_and_its_uploaded_photos(clie
     package_id = package["id_paquete_turistico"]
     uploaded = client.post(
         f"/packages/{package_id}/images/upload",
-        files={"file": ("f.png", b"\x89PNG\r\n\x1a\n" + b"\x00" * 16, "image/png")},
+        files={"file": ("f.png", real_photo(64, 64), "image/png")},
         headers=auth(admin_token),
     ).json()
     fake_s3.objects[f"{package_id}/manual.jpg"] = b"manual"
@@ -121,6 +122,7 @@ def test_admin_deletes_package_without_reservations_and_its_uploaded_photos(clie
     assert response.status_code == 204
     assert client.get(f"/packages/admin/{package_id}", headers=auth(admin_token)).status_code == 404
     assert uploaded["s3_key"] not in fake_s3.objects  # subida por la consola: se borra
+    assert not any(key.endswith("_sm.jpg") for key in fake_s3.objects)  # y también su miniatura
     assert f"{package_id}/manual.jpg" in fake_s3.objects  # cargada a mano: se conserva
 
 

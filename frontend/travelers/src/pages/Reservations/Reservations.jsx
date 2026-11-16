@@ -166,7 +166,7 @@ function Reservations() {
       );
 
       setCovers(
-        Object.fromEntries(coversResponse.data.map((cover) => [cover.paquete_id, cover.imagen_url]))
+        Object.fromEntries(coversResponse.data.map((cover) => [cover.paquete_id, cover.imagen_url_sm || cover.imagen_url]))
       );
 
       const packageIds = [...new Set(sorted.map((item) => item.id_paquete_turistico))];

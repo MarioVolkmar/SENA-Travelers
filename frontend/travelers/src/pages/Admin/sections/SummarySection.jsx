@@ -36,7 +36,7 @@ function SummarySection({ user, goTo }) {
           packages: packages.data,
           pendingProviders: providers.data,
           users: users.data,
-          covers: Object.fromEntries(covers.data.map((cover) => [cover.paquete_id, cover.imagen_url])),
+          covers: Object.fromEntries(covers.data.map((cover) => [cover.paquete_id, cover.imagen_url_sm || cover.imagen_url])),
           orders: orders.data,
           schedule: schedule.data,
         });

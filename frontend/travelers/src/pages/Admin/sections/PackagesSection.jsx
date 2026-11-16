@@ -46,7 +46,7 @@ function PackagesSection({ searchParams, goTo, onDataChanged }) {
     setPackages([...packagesResponse.data].sort((a, b) => b.fecha_inicio.localeCompare(a.fecha_inicio)));
     setCities(citiesResponse.data);
     setProducts(productsResponse.data);
-    setCovers(Object.fromEntries(coversResponse.data.map((cover) => [cover.paquete_id, cover.imagen_url])));
+    setCovers(Object.fromEntries(coversResponse.data.map((cover) => [cover.paquete_id, cover.imagen_url_sm || cover.imagen_url])));
     setVersion((current) => current + 1);
   }, []);
 

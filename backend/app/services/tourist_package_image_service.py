@@ -5,6 +5,7 @@ from uuid import uuid4
 from sqlalchemy.orm import Session
 
 from app.core import storage
+from app.core.images import optimize_photo
 
 # Claves que genera la consola al subir: "<id_paquete>/<uuid de 32 caracteres>.<ext>"
 UPLOADED_KEY_PATTERN = re.compile(r"^\d+/[0-9a-f]{32}\.(jpg|png|webp)$")
@@ -147,20 +148,23 @@ class TouristPackageImageService:
         if len(data) > storage.PACKAGE_IMAGE_MAX_BYTES:
             raise ValueError("La imagen no puede superar los 5 MB")
 
-        extension = storage.detect_image_extension(data)
-
-        if extension is None:
+        if storage.detect_image_extension(data) is None:
             raise ValueError("Formato no permitido. Usa una imagen JPG, PNG o WEBP")
 
         if es_portada and self.image_repository.find_cover_by_package_id(paquete_id):
             raise ValueError("El paquete ya tiene una imagen de portada")
 
-        key = f"{paquete_id}/{uuid4().hex}.{extension}"
-        storage.upload_file(key, data, storage.IMAGE_CONTENT_TYPES[extension])
+        # Se reduce y comprime antes de subirla: tamaño grande y miniatura (ver app/core/images.py)
+        large, small = optimize_photo(data)
+        name = uuid4().hex
+        key, key_sm = f"{paquete_id}/{name}.jpg", f"{paquete_id}/{name}_sm.jpg"
+        storage.upload_file(key, large, storage.IMAGE_CONTENT_TYPES["jpg"])
+        storage.upload_file(key_sm, small, storage.IMAGE_CONTENT_TYPES["jpg"])
 
         image = TouristPackageImageModel(
             paquete_id=paquete_id,
             s3_key=key,
+            s3_key_sm=key_sm,
             es_portada=es_portada,
             orden=orden
         )
@@ -169,6 +173,7 @@ class TouristPackageImageService:
             return self.image_repository.create_image(image)
         except Exception:
             storage.delete_file(key)
+            storage.delete_file(key_sm)
             raise
 
     def list_images_by_package(self, paquete_id: int):
@@ -207,13 +212,14 @@ class TouristPackageImageService:
         self._get_package_or_raise(paquete_id)
 
         image = self._get_image_of_package_or_raise(paquete_id, id_imagen)
-        s3_key = image.s3_key
+        s3_key, s3_key_sm = image.s3_key, image.s3_key_sm
 
         self.image_repository.delete_image(image)
 
         # Solo se borra de S3 si la subió la consola; las cargadas a mano solo se desvinculan
         if UPLOADED_KEY_PATTERN.match(s3_key):
-            try:
-                storage.delete_file(s3_key)
-            except Exception:
-                pass
+            for key in filter(None, (s3_key, s3_key_sm)):
+                try:
+                    storage.delete_file(key)
+                except Exception:
+                    pass

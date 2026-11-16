@@ -20,7 +20,7 @@ function FavoritesSection() {
     ])
       .then(([favorites, covers, cities]) => {
         setExtras({
-          covers: Object.fromEntries(covers.data.map((cover) => [cover.paquete_id, cover.imagen_url])),
+          covers: Object.fromEntries(covers.data.map((cover) => [cover.paquete_id, cover.imagen_url_sm || cover.imagen_url])),
           cities: Object.fromEntries(cities.data.map((city) => [city.id_ciudad, city])),
         });
         setPackages(favorites.data);

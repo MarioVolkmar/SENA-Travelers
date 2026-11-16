@@ -178,7 +178,7 @@ function Home() {
       {bannerPackage && (
         <section className="container home-section">
           <div className="home-banner">
-            <img src={bannerPackage.cover || bannerImage} alt="" className="home-banner-image" />
+            <img src={bannerPackage.cover || bannerImage} alt="" className="home-banner-image" loading="lazy" decoding="async" />
             <div className="home-banner-overlay" />
             <div className="home-banner-content">
               <h2>{bannerPackage.nombre}</h2>
